@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FSI Robustness Check</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Financial Stress Index validation</p>
+        <h1>FSI Robustness Check</h1>
+      </div>
+      <div class="status" id="loadStatus">Loading data...</div>
+    </header>
+
+    <nav class="tabs" aria-label="Main sections">
+      <button class="tab active" data-view="ranked">Ranked FSIs</button>
+      <button class="tab" data-view="benchmarks">Benchmark Validation</button>
+      <button class="tab" data-view="reports">Generated Reports</button>
+    </nav>
+
+    <main>
+      <section class="summary-grid" aria-label="Run summary">
+        <div class="summary-item">
+          <span class="label">FSI versions</span>
+          <strong id="summaryFsi">-</strong>
+        </div>
+        <div class="summary-item">
+          <span class="label">Benchmark rows</span>
+          <strong id="summaryBenchmarks">-</strong>
+        </div>
+        <div class="summary-item">
+          <span class="label">Best score</span>
+          <strong id="summaryScore">-</strong>
+        </div>
+        <div class="summary-item">
+          <span class="label">Best FSI ID</span>
+          <strong id="summaryBestId">-</strong>
+        </div>
+      </section>
+
+      <section class="filter-panel" aria-label="Filters">
+        <div class="filter-row">
+          <label>
+            Search
+            <input id="searchInput" type="search" placeholder="FSI ID, sentiment, variant">
+          </label>
+          <label>
+            Date range
+            <select id="dateRangeFilter"></select>
+          </label>
+          <label>
+            Window size
+            <select id="windowFilter"></select>
+          </label>
+          <label>
+            Sentiment set
+            <select id="sentimentFilter"></select>
+          </label>
+          <label>
+            Method
+            <select id="methodFilter"></select>
+          </label>
+          <label>
+            m value
+            <select id="mFilter"></select>
+          </label>
+          <label>
+            Benchmark
+            <select id="benchmarkFilter"></select>
+          </label>
+          <button id="resetFilters" class="secondary-button">Reset</button>
+        </div>
+      </section>
+
+      <section id="rankedView" class="view active">
+        <div class="section-title">
+          <div>
+            <h2>Ranked FSI Versions</h2>
+            <p id="rankedCount">-</p>
+          </div>
+          <button id="downloadRanked" class="primary-button">Download ranked CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Rank</th>
+                <th>FSI ID</th>
+                <th>Score</th>
+                <th>Sentiment</th>
+                <th>Method</th>
+                <th>m</th>
+                <th>Date Range</th>
+                <th>Window</th>
+                <th>EPU r</th>
+                <th>CFSI r</th>
+                <th>VIXC r</th>
+              </tr>
+            </thead>
+            <tbody id="rankedTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="benchmarksView" class="view">
+        <div class="section-title">
+          <div>
+            <h2>Benchmark Validation Results</h2>
+            <p id="benchmarkCount">-</p>
+          </div>
+          <button id="downloadBenchmarks" class="primary-button">Download benchmark CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>FSI ID</th>
+                <th>Benchmark</th>
+                <th>Frequency</th>
+                <th>Sentiment</th>
+                <th>Method</th>
+                <th>m</th>
+                <th>Date Range</th>
+                <th>Window</th>
+                <th>Pearson r</th>
+                <th>Spearman rho</th>
+                <th>RMSE</th>
+                <th>Lead/Lag</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="benchmarkTable"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="reportsView" class="view">
+        <div class="section-title">
+          <div>
+            <h2>Generated Reports</h2>
+            <p>Source folder: <code>assets/grid_search_20260520_104155</code></p>
+          </div>
+        </div>
+        <div class="report-grid" id="reportGrid"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
