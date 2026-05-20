@@ -17,11 +17,7 @@ const state = {
     windowSizes: [],
     sentimentModels: [],
     methods: [],
-    variants: [],
     mValues: [],
-    dailyWindows: [],
-    ewmHalflives: [],
-    benchmarks: [],
   },
 };
 
@@ -41,11 +37,7 @@ const elements = {
   windowFilter: document.querySelector("#windowFilter"),
   sentimentFilter: document.querySelector("#sentimentFilter"),
   methodFilter: document.querySelector("#methodFilter"),
-  variantFilter: document.querySelector("#variantFilter"),
   mFilter: document.querySelector("#mFilter"),
-  dailyWindowFilter: document.querySelector("#dailyWindowFilter"),
-  ewmFilter: document.querySelector("#ewmFilter"),
-  benchmarkFilter: document.querySelector("#benchmarkFilter"),
   resetFilters: document.querySelector("#resetFilters"),
   downloadRanked: document.querySelector("#downloadRanked"),
   downloadBenchmarks: document.querySelector("#downloadBenchmarks"),
@@ -208,7 +200,7 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function matchesFilters(row, includeBenchmark = false) {
+function matchesFilters(row) {
   const search = state.filters.search.toLowerCase();
   if (search) {
     const haystack = [
@@ -227,11 +219,7 @@ function matchesFilters(row, includeBenchmark = false) {
   if (state.filters.dateRanges.length && !state.filters.dateRanges.includes(dateRange(row))) return false;
   if (state.filters.windowSizes.length && !state.filters.windowSizes.includes(String(row.window_size))) return false;
   if (state.filters.methods.length && !state.filters.methods.includes(row.filtering_type)) return false;
-  if (state.filters.variants.length && !state.filters.variants.includes(row.variant)) return false;
   if (state.filters.mValues.length && !state.filters.mValues.includes(String(row.min_matches))) return false;
-  if (state.filters.dailyWindows.length && !state.filters.dailyWindows.includes(String(row.daily_window))) return false;
-  if (state.filters.ewmHalflives.length && !state.filters.ewmHalflives.includes(String(row.ewm_halflife))) return false;
-  if (includeBenchmark && state.filters.benchmarks.length && !state.filters.benchmarks.includes(row.benchmark_index)) return false;
 
   if (state.filters.sentimentModels.length) {
     const rowModels = sentimentParts(row);
@@ -242,11 +230,11 @@ function matchesFilters(row, includeBenchmark = false) {
 }
 
 function filteredRankedRows() {
-  return state.ranked.filter((row) => matchesFilters(row, false));
+  return state.ranked.filter((row) => matchesFilters(row));
 }
 
 function filteredBenchmarkRows() {
-  return state.benchmark.filter((row) => matchesFilters(row, true));
+  return state.benchmark.filter((row) => matchesFilters(row));
 }
 
 function renderSummary() {
@@ -375,11 +363,7 @@ function populateFilters() {
   renderCheckboxGroup(elements.windowFilter, uniqueSorted(combined, "window_size", true), "window-size");
   renderCheckboxGroup(elements.sentimentFilter, uniqueSentimentModels(combined), "sentiment-model");
   renderCheckboxGroup(elements.methodFilter, uniqueSorted(combined, "filtering_type"), "method");
-  renderCheckboxGroup(elements.variantFilter, uniqueSorted(combined, "variant"), "variant");
   renderCheckboxGroup(elements.mFilter, uniqueSorted(combined, "min_matches", true), "m-value");
-  renderCheckboxGroup(elements.dailyWindowFilter, uniqueSorted(combined, "daily_window", true), "daily-window");
-  renderCheckboxGroup(elements.ewmFilter, uniqueSorted(combined, "ewm_halflife", true), "ewm-halflife");
-  renderCheckboxGroup(elements.benchmarkFilter, uniqueSorted(state.benchmark, "benchmark_index"), "benchmark");
 }
 
 function syncFiltersFromInputs() {
@@ -388,11 +372,7 @@ function syncFiltersFromInputs() {
   state.filters.windowSizes = selectedCheckboxValues(elements.windowFilter);
   state.filters.sentimentModels = selectedCheckboxValues(elements.sentimentFilter);
   state.filters.methods = selectedCheckboxValues(elements.methodFilter);
-  state.filters.variants = selectedCheckboxValues(elements.variantFilter);
   state.filters.mValues = selectedCheckboxValues(elements.mFilter);
-  state.filters.dailyWindows = selectedCheckboxValues(elements.dailyWindowFilter);
-  state.filters.ewmHalflives = selectedCheckboxValues(elements.ewmFilter);
-  state.filters.benchmarks = selectedCheckboxValues(elements.benchmarkFilter);
 }
 
 function resetFilters() {
