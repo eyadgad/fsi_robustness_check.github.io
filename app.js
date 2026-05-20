@@ -13,15 +13,15 @@ const state = {
   view: "ranked",
   filters: {
     search: "",
-    dateRange: "",
-    windowSize: "",
-    sentimentSet: "",
-    method: "",
-    variant: "",
-    mValue: "",
-    dailyWindow: "",
-    ewmHalflife: "",
-    benchmark: "",
+    dateRanges: [],
+    windowSizes: [],
+    sentimentModels: [],
+    methods: [],
+    variants: [],
+    mValues: [],
+    dailyWindows: [],
+    ewmHalflives: [],
+    benchmarks: [],
   },
 };
 
@@ -153,23 +153,40 @@ function uniqueSorted(rows, key, numeric = false) {
   return values.sort((a, b) => (numeric ? Number(a) - Number(b) : String(a).localeCompare(String(b))));
 }
 
+function sentimentParts(row) {
+  return String(row.sentiment_set || "")
+    .split("+")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function uniqueSentimentModels(rows) {
+  const preferred = ["lm", "finbert19", "finbert20", "finvader"];
+  const found = new Set(rows.flatMap(sentimentParts));
+  return preferred.filter((value) => found.has(value));
+}
+
 function dateRange(row) {
   return `${row.since_date} to ${row.until_date}`;
 }
 
-function addOptions(select, values, label = "All") {
-  select.innerHTML = "";
-  const all = document.createElement("option");
-  all.value = "";
-  all.textContent = label;
-  select.appendChild(all);
-
+function renderCheckboxGroup(container, values, name) {
+  container.innerHTML = "";
   values.forEach((value) => {
-    const option = document.createElement("option");
-    option.value = value;
-    option.textContent = value;
-    select.appendChild(option);
+    const id = `${name}-${String(value).replace(/[^a-z0-9]+/gi, "-")}`;
+    const label = document.createElement("label");
+    label.className = "checkbox-option";
+    label.htmlFor = id;
+    label.innerHTML = `
+      <input id="${escapeHtml(id)}" type="checkbox" name="${escapeHtml(name)}" value="${escapeHtml(value)}">
+      <span>${escapeHtml(value)}</span>
+    `;
+    container.appendChild(label);
   });
+}
+
+function selectedCheckboxValues(container) {
+  return [...container.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
 }
 
 function formatNumber(value, digits = 4) {
@@ -207,15 +224,19 @@ function matchesFilters(row, includeBenchmark = false) {
     if (!haystack.includes(search)) return false;
   }
 
-  if (state.filters.dateRange && dateRange(row) !== state.filters.dateRange) return false;
-  if (state.filters.windowSize && String(row.window_size) !== state.filters.windowSize) return false;
-  if (state.filters.sentimentSet && row.sentiment_set !== state.filters.sentimentSet) return false;
-  if (state.filters.method && row.filtering_type !== state.filters.method) return false;
-  if (state.filters.variant && row.variant !== state.filters.variant) return false;
-  if (state.filters.mValue && String(row.min_matches) !== state.filters.mValue) return false;
-  if (state.filters.dailyWindow && String(row.daily_window) !== state.filters.dailyWindow) return false;
-  if (state.filters.ewmHalflife && String(row.ewm_halflife) !== state.filters.ewmHalflife) return false;
-  if (includeBenchmark && state.filters.benchmark && row.benchmark_index !== state.filters.benchmark) return false;
+  if (state.filters.dateRanges.length && !state.filters.dateRanges.includes(dateRange(row))) return false;
+  if (state.filters.windowSizes.length && !state.filters.windowSizes.includes(String(row.window_size))) return false;
+  if (state.filters.methods.length && !state.filters.methods.includes(row.filtering_type)) return false;
+  if (state.filters.variants.length && !state.filters.variants.includes(row.variant)) return false;
+  if (state.filters.mValues.length && !state.filters.mValues.includes(String(row.min_matches))) return false;
+  if (state.filters.dailyWindows.length && !state.filters.dailyWindows.includes(String(row.daily_window))) return false;
+  if (state.filters.ewmHalflives.length && !state.filters.ewmHalflives.includes(String(row.ewm_halflife))) return false;
+  if (includeBenchmark && state.filters.benchmarks.length && !state.filters.benchmarks.includes(row.benchmark_index)) return false;
+
+  if (state.filters.sentimentModels.length) {
+    const rowModels = sentimentParts(row);
+    if (!state.filters.sentimentModels.every((model) => rowModels.includes(model))) return false;
+  }
 
   return true;
 }
@@ -344,44 +365,34 @@ function renderCurrentView() {
 function populateFilters() {
   const combined = [...state.ranked, ...state.benchmark];
   const ranges = [...new Set(combined.map(dateRange))].sort();
-  addOptions(elements.dateRangeFilter, ranges, "All ranges");
-  addOptions(elements.windowFilter, uniqueSorted(combined, "window_size", true), "All windows");
-  addOptions(elements.sentimentFilter, uniqueSorted(combined, "sentiment_set"), "All sentiment sets");
-  addOptions(elements.methodFilter, uniqueSorted(combined, "filtering_type"), "All methods");
-  addOptions(elements.variantFilter, uniqueSorted(combined, "variant"), "All variants");
-  addOptions(elements.mFilter, uniqueSorted(combined, "min_matches", true), "All m values");
-  addOptions(elements.dailyWindowFilter, uniqueSorted(combined, "daily_window", true), "All daily windows");
-  addOptions(elements.ewmFilter, uniqueSorted(combined, "ewm_halflife", true), "All halflives");
-  addOptions(elements.benchmarkFilter, uniqueSorted(state.benchmark, "benchmark_index"), "All benchmarks");
+  renderCheckboxGroup(elements.dateRangeFilter, ranges, "date-range");
+  renderCheckboxGroup(elements.windowFilter, uniqueSorted(combined, "window_size", true), "window-size");
+  renderCheckboxGroup(elements.sentimentFilter, uniqueSentimentModels(combined), "sentiment-model");
+  renderCheckboxGroup(elements.methodFilter, uniqueSorted(combined, "filtering_type"), "method");
+  renderCheckboxGroup(elements.variantFilter, uniqueSorted(combined, "variant"), "variant");
+  renderCheckboxGroup(elements.mFilter, uniqueSorted(combined, "min_matches", true), "m-value");
+  renderCheckboxGroup(elements.dailyWindowFilter, uniqueSorted(combined, "daily_window", true), "daily-window");
+  renderCheckboxGroup(elements.ewmFilter, uniqueSorted(combined, "ewm_halflife", true), "ewm-halflife");
+  renderCheckboxGroup(elements.benchmarkFilter, uniqueSorted(state.benchmark, "benchmark_index"), "benchmark");
 }
 
 function syncFiltersFromInputs() {
   state.filters.search = elements.searchInput.value.trim();
-  state.filters.dateRange = elements.dateRangeFilter.value;
-  state.filters.windowSize = elements.windowFilter.value;
-  state.filters.sentimentSet = elements.sentimentFilter.value;
-  state.filters.method = elements.methodFilter.value;
-  state.filters.variant = elements.variantFilter.value;
-  state.filters.mValue = elements.mFilter.value;
-  state.filters.dailyWindow = elements.dailyWindowFilter.value;
-  state.filters.ewmHalflife = elements.ewmFilter.value;
-  state.filters.benchmark = elements.benchmarkFilter.value;
+  state.filters.dateRanges = selectedCheckboxValues(elements.dateRangeFilter);
+  state.filters.windowSizes = selectedCheckboxValues(elements.windowFilter);
+  state.filters.sentimentModels = selectedCheckboxValues(elements.sentimentFilter);
+  state.filters.methods = selectedCheckboxValues(elements.methodFilter);
+  state.filters.variants = selectedCheckboxValues(elements.variantFilter);
+  state.filters.mValues = selectedCheckboxValues(elements.mFilter);
+  state.filters.dailyWindows = selectedCheckboxValues(elements.dailyWindowFilter);
+  state.filters.ewmHalflives = selectedCheckboxValues(elements.ewmFilter);
+  state.filters.benchmarks = selectedCheckboxValues(elements.benchmarkFilter);
 }
 
 function resetFilters() {
   elements.searchInput.value = "";
-  [
-    elements.dateRangeFilter,
-    elements.windowFilter,
-    elements.sentimentFilter,
-    elements.methodFilter,
-    elements.variantFilter,
-    elements.mFilter,
-    elements.dailyWindowFilter,
-    elements.ewmFilter,
-    elements.benchmarkFilter,
-  ].forEach((select) => {
-    select.value = "";
+  document.querySelectorAll('.filter-panel input[type="checkbox"]').forEach((checkbox) => {
+    checkbox.checked = false;
   });
   syncFiltersFromInputs();
   renderCurrentView();
@@ -405,20 +416,18 @@ function wireEvents() {
 
   [
     elements.searchInput,
-    elements.dateRangeFilter,
-    elements.windowFilter,
-    elements.sentimentFilter,
-    elements.methodFilter,
-    elements.variantFilter,
-    elements.mFilter,
-    elements.dailyWindowFilter,
-    elements.ewmFilter,
-    elements.benchmarkFilter,
   ].forEach((control) => {
     control.addEventListener("input", () => {
       syncFiltersFromInputs();
       renderCurrentView();
     });
+  });
+
+  document.querySelector(".filter-panel").addEventListener("change", (event) => {
+    if (event.target.matches('input[type="checkbox"]')) {
+      syncFiltersFromInputs();
+      renderCurrentView();
+    }
   });
 
   elements.resetFilters.addEventListener("click", resetFilters);

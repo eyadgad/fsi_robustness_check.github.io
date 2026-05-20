@@ -43,46 +43,56 @@
 
       <section class="filter-panel" aria-label="Filters">
         <div class="filter-row">
-          <label>
+          <label class="filter-search">
             Search
             <input id="searchInput" type="search" placeholder="FSI ID, sentiment, variant">
           </label>
-          <label>
-            Date range
-            <select id="dateRangeFilter"></select>
-          </label>
-          <label>
-            Window size
-            <select id="windowFilter"></select>
-          </label>
-          <label>
-            Sentiment set
-            <select id="sentimentFilter"></select>
-          </label>
-          <label>
-            Method
-            <select id="methodFilter"></select>
-          </label>
-          <label>
-            Variant
-            <select id="variantFilter"></select>
-          </label>
-          <label>
-            m value
-            <select id="mFilter"></select>
-          </label>
-          <label>
-            Daily window
-            <select id="dailyWindowFilter"></select>
-          </label>
-          <label>
-            EWM halflife
-            <select id="ewmFilter"></select>
-          </label>
-          <label>
-            Benchmark
-            <select id="benchmarkFilter"></select>
-          </label>
+
+          <fieldset class="filter-group">
+            <legend>Date range</legend>
+            <div id="dateRangeFilter" class="checkbox-list"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>Window size</legend>
+            <div id="windowFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>Sentiment models</legend>
+            <div id="sentimentFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>Method</legend>
+            <div id="methodFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>Variant</legend>
+            <div id="variantFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>m value</legend>
+            <div id="mFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>Daily window</legend>
+            <div id="dailyWindowFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>EWM halflife</legend>
+            <div id="ewmFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>Benchmark</legend>
+            <div id="benchmarkFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
           <button id="resetFilters" class="secondary-button">Reset</button>
         </div>
       </section>

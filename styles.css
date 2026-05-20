@@ -142,12 +142,13 @@ main {
 
 .filter-row {
   display: grid;
-  grid-template-columns: 1.5fr repeat(9, minmax(112px, 1fr)) auto;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
-  align-items: end;
+  align-items: start;
 }
 
-label {
+.filter-search,
+.filter-group legend {
   display: grid;
   gap: 5px;
   color: var(--muted);
@@ -155,8 +156,7 @@ label {
   font-weight: 700;
 }
 
-input,
-select {
+input[type="search"] {
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;
@@ -168,10 +168,52 @@ select {
 }
 
 input:focus,
-select:focus,
 button:focus {
   outline: 3px solid rgba(15, 118, 110, 0.18);
   outline-offset: 1px;
+}
+
+.filter-group {
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.filter-group legend {
+  padding: 0 4px;
+}
+
+.checkbox-list {
+  display: grid;
+  gap: 6px;
+  max-height: 154px;
+  overflow: auto;
+  padding-top: 6px;
+}
+
+.checkbox-list.compact {
+  max-height: 118px;
+}
+
+.checkbox-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.checkbox-option input {
+  width: 16px;
+  height: 16px;
+  margin: 1px 0 0;
+  accent-color: var(--accent);
 }
 
 .primary-button,
