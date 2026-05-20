@@ -162,6 +162,13 @@ function dateRange(row) {
   return `${row.since_date} to ${row.until_date}`;
 }
 
+function displayDateRange(valueOrRow) {
+  const value = typeof valueOrRow === "string" ? valueOrRow : dateRange(valueOrRow);
+  const [start, end] = value.split(" to ");
+  if (!start || !end) return value;
+  return `${start.slice(0, 4)} to ${end.slice(0, 4)}`;
+}
+
 function renderCheckboxGroup(container, values, name) {
   if (!container) return;
   container.innerHTML = "";
@@ -172,7 +179,7 @@ function renderCheckboxGroup(container, values, name) {
     label.htmlFor = id;
     label.innerHTML = `
       <input id="${escapeHtml(id)}" type="checkbox" name="${escapeHtml(name)}" value="${escapeHtml(value)}">
-      <span>${escapeHtml(value)}</span>
+      <span>${escapeHtml(name === "date-range" ? displayDateRange(value) : value)}</span>
     `;
     container.appendChild(label);
   });
@@ -266,7 +273,7 @@ function renderRankedTable() {
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(row.filtering_type)}</span></td>
         <td>${escapeHtml(row.min_matches)}</td>
-        <td>${escapeHtml(dateRange(row))}</td>
+        <td>${escapeHtml(displayDateRange(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
         <td>${formatNumber(row.epu_pearson_r)}</td>
         <td>${formatNumber(row.cfsi_pearson_r)}</td>
@@ -295,7 +302,7 @@ function renderBenchmarkTable() {
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(row.filtering_type)}</span></td>
         <td>${escapeHtml(row.min_matches)}</td>
-        <td>${escapeHtml(dateRange(row))}</td>
+        <td>${escapeHtml(displayDateRange(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
         <td>${formatNumber(row.pearson_r)}</td>
         <td>${formatNumber(row.spearman_rho)}</td>
