@@ -284,8 +284,27 @@ function filteredRankedRows() {
   return state.ranked.filter((row) => matchesFilters(row));
 }
 
-function filteredBenchmarkRows() {
-  return state.benchmark.filter((row) => matchesFilters(row));
+function benchmarkSortValue(row) {
+  const order = {
+    epu_monthly: 1,
+    cfsi_monthly: 2,
+    vixc_daily: 3,
+  };
+  return order[row.benchmark_index] || 99;
+}
+
+function benchmarkRowsByFsi() {
+  const groups = new Map();
+  state.benchmark.forEach((row) => {
+    if (!groups.has(row.fsi_id)) groups.set(row.fsi_id, []);
+    groups.get(row.fsi_id).push(row);
+  });
+
+  groups.forEach((rows) => {
+    rows.sort((a, b) => benchmarkSortValue(a) - benchmarkSortValue(b));
+  });
+
+  return groups;
 }
 
 function renderSummary() {
@@ -327,9 +346,18 @@ function renderRankedTable() {
 }
 
 function renderBenchmarkTable() {
-  const rows = filteredBenchmarkRows();
-  elements.benchmarkCount.textContent = `${rows.length.toLocaleString()} matching benchmark rows`;
-  const visible = rows.slice(0, 350);
+  const rankedRows = filteredRankedRows();
+  const groupedBenchmarkRows = benchmarkRowsByFsi();
+  const groups = rankedRows
+    .map((rankedRow) => ({
+      rankedRow,
+      benchmarkRows: groupedBenchmarkRows.get(rankedRow.fsi_id) || [],
+    }))
+    .filter((group) => group.benchmarkRows.length);
+  const benchmarkRowCount = groups.reduce((total, group) => total + group.benchmarkRows.length, 0);
+  elements.benchmarkCount.textContent =
+    `${groups.length.toLocaleString()} matching FSI versions, ${benchmarkRowCount.toLocaleString()} benchmark rows`;
+  const visible = groups.slice(0, 120);
 
   if (!visible.length) {
     elements.benchmarkTable.innerHTML = `<tr><td class="empty" colspan="14">No benchmark validation rows match the current filters.</td></tr>`;
@@ -337,24 +365,31 @@ function renderBenchmarkTable() {
   }
 
   elements.benchmarkTable.innerHTML = visible
-    .map((row) => `
-      <tr>
-        <td><span class="mono">${escapeHtml(row.fsi_id)}</span></td>
-        <td>${escapeHtml(row.benchmark_index)}</td>
-        <td>${escapeHtml(row.benchmark_frequency)}</td>
-        <td>${escapeHtml(row.sentiment_set)}</td>
-        <td><span class="pill">${escapeHtml(methodValue(row))}</span></td>
-        <td>${escapeHtml(mValue(row))}</td>
-        <td>${escapeHtml(fromYear(row))}</td>
-        <td>${escapeHtml(toYear(row))}</td>
-        <td>${escapeHtml(row.window_size)}</td>
-        <td>${formatNumber(row.pearson_r)}</td>
-        <td>${formatNumber(row.spearman_rho)}</td>
-        <td>${formatNumber(row.rmse)}</td>
-        <td>${escapeHtml(row.optimal_lag_dir || "-")} ${row.optimal_lag !== "" ? `(${row.optimal_lag})` : ""}</td>
-        <td class="note-cell">${escapeHtml(row.notes || row.alignment_notes || "")}</td>
-      </tr>
-    `)
+    .map((group) => {
+      const rowspan = group.benchmarkRows.length;
+      return group.benchmarkRows
+        .map((row, index) => `
+          <tr class="${index === 0 ? "benchmark-group-start" : ""}">
+            ${index === 0 ? `
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(group.rankedRow.rank)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell"><span class="mono">${escapeHtml(group.rankedRow.fsi_id)}</span></td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.sentiment_set)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell"><span class="pill">${escapeHtml(methodValue(group.rankedRow))}</span></td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(mValue(group.rankedRow))}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(fromYear(group.rankedRow))}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(toYear(group.rankedRow))}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.window_size)}</td>
+            ` : ""}
+            <td class="benchmark-name">${escapeHtml(row.benchmark_index)}</td>
+            <td>${formatNumber(row.pearson_r)}</td>
+            <td>${formatNumber(row.spearman_rho)}</td>
+            <td>${formatNumber(row.rmse)}</td>
+            <td>${escapeHtml(row.optimal_lag_dir || "-")} ${row.optimal_lag !== "" ? `(${row.optimal_lag})` : ""}</td>
+            <td class="note-cell">${escapeHtml(row.notes || row.alignment_notes || "")}</td>
+          </tr>
+        `)
+        .join("");
+    })
     .join("");
 }
 
