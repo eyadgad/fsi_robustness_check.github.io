@@ -160,6 +160,38 @@ function uniqueSentimentModels(rows) {
   return preferred.filter((value) => found.has(value));
 }
 
+function variantKey(row) {
+  const method = String(row.filtering_type || "").trim();
+  const mValue = String(row.min_matches || "").trim();
+  if (method && mValue) return `${method}_m${mValue}`;
+  return String(row.variant || "").trim();
+}
+
+function methodValue(row) {
+  const explicit = String(row.filtering_type || "").trim();
+  if (explicit) return explicit;
+  const match = variantKey(row).match(/^(regex|similarity)_m\d+$/i);
+  return match ? match[1].toLowerCase() : "";
+}
+
+function mValue(row) {
+  const explicit = String(row.min_matches || "").trim();
+  if (explicit) return explicit;
+  const match = variantKey(row).match(/_m(\d+)$/i);
+  return match ? match[1] : "";
+}
+
+function uniqueMethods(rows) {
+  const preferred = ["regex", "similarity"];
+  const found = new Set(rows.map(methodValue).filter(Boolean));
+  return preferred.filter((value) => found.has(value));
+}
+
+function uniqueMValues(rows) {
+  const values = rows.map(mValue).filter(Boolean);
+  return [...new Set(values)].sort((a, b) => Number(a) - Number(b));
+}
+
 function yearFromDate(value) {
   return String(value || "").slice(0, 4);
 }
@@ -223,9 +255,10 @@ function matchesFilters(row) {
     const haystack = [
       row.fsi_id,
       row.sentiment_set,
-      row.variant,
+      variantKey(row),
       row.short,
-      row.filtering_type,
+      methodValue(row),
+      mValue(row),
       row.benchmark_index,
     ]
       .join(" ")
@@ -236,8 +269,8 @@ function matchesFilters(row) {
   if (state.filters.fromYears.length && !state.filters.fromYears.includes(fromYear(row))) return false;
   if (state.filters.toYears.length && !state.filters.toYears.includes(toYear(row))) return false;
   if (state.filters.windowSizes.length && !state.filters.windowSizes.includes(String(row.window_size))) return false;
-  if (state.filters.methods.length && !state.filters.methods.includes(row.filtering_type)) return false;
-  if (state.filters.mValues.length && !state.filters.mValues.includes(String(row.min_matches))) return false;
+  if (state.filters.methods.length && !state.filters.methods.includes(methodValue(row))) return false;
+  if (state.filters.mValues.length && !state.filters.mValues.includes(mValue(row))) return false;
 
   if (state.filters.sentimentModels.length) {
     const rowModels = sentimentParts(row);
@@ -280,8 +313,8 @@ function renderRankedTable() {
         <td><span class="mono">${escapeHtml(row.fsi_id)}</span></td>
         <td>${formatNumber(row.rank_score)}</td>
         <td>${escapeHtml(row.sentiment_set)}</td>
-        <td><span class="pill">${escapeHtml(row.filtering_type)}</span></td>
-        <td>${escapeHtml(row.min_matches)}</td>
+        <td><span class="pill">${escapeHtml(methodValue(row))}</span></td>
+        <td>${escapeHtml(mValue(row))}</td>
         <td>${escapeHtml(fromYear(row))}</td>
         <td>${escapeHtml(toYear(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
@@ -310,8 +343,8 @@ function renderBenchmarkTable() {
         <td>${escapeHtml(row.benchmark_index)}</td>
         <td>${escapeHtml(row.benchmark_frequency)}</td>
         <td>${escapeHtml(row.sentiment_set)}</td>
-        <td><span class="pill">${escapeHtml(row.filtering_type)}</span></td>
-        <td>${escapeHtml(row.min_matches)}</td>
+        <td><span class="pill">${escapeHtml(methodValue(row))}</span></td>
+        <td>${escapeHtml(mValue(row))}</td>
         <td>${escapeHtml(fromYear(row))}</td>
         <td>${escapeHtml(toYear(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
@@ -382,8 +415,8 @@ function populateFilters() {
   renderCheckboxGroup(elements.toYearFilter, uniqueYears(combined, "until_date"), "to-year");
   renderCheckboxGroup(elements.windowFilter, uniqueSorted(combined, "window_size", true), "window-size");
   renderCheckboxGroup(elements.sentimentFilter, uniqueSentimentModels(combined), "sentiment-model");
-  renderCheckboxGroup(elements.methodFilter, uniqueSorted(combined, "filtering_type"), "method");
-  renderCheckboxGroup(elements.mFilter, uniqueSorted(combined, "min_matches", true), "m-value");
+  renderCheckboxGroup(elements.methodFilter, uniqueMethods(combined), "method");
+  renderCheckboxGroup(elements.mFilter, uniqueMValues(combined), "m-value");
 }
 
 function syncFiltersFromInputs() {
