@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FSI Robustness Check</title>
-    <link rel="stylesheet" href="styles.css?v=9a7d8cd">
+    <link rel="stylesheet" href="styles.css?v=split-years">
   </head>
   <body>
     <header class="app-header">
@@ -49,8 +49,13 @@
           </label>
 
           <fieldset class="filter-group">
-            <legend>Data range (Jan-Dec)</legend>
-            <div id="dateRangeFilter" class="checkbox-list"></div>
+            <legend>From (Jan)</legend>
+            <div id="fromYearFilter" class="checkbox-list compact"></div>
+          </fieldset>
+
+          <fieldset class="filter-group">
+            <legend>To (Dec)</legend>
+            <div id="toYearFilter" class="checkbox-list compact"></div>
           </fieldset>
 
           <fieldset class="filter-group">
@@ -95,7 +100,8 @@
                 <th>Sentiment</th>
                 <th>Method</th>
                 <th>m</th>
-                <th>Date Range</th>
+                <th>From (Jan)</th>
+                <th>To (Dec)</th>
                 <th>Window</th>
                 <th>EPU r</th>
                 <th>CFSI r</th>
@@ -125,7 +131,8 @@
                 <th>Sentiment</th>
                 <th>Method</th>
                 <th>m</th>
-                <th>Date Range</th>
+                <th>From (Jan)</th>
+                <th>To (Dec)</th>
                 <th>Window</th>
                 <th>Pearson r</th>
                 <th>Spearman rho</th>
@@ -150,6 +157,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=9a7d8cd"></script>
+    <script src="app.js?v=split-years"></script>
   </body>
 </html>

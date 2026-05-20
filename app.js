@@ -13,7 +13,8 @@ const state = {
   view: "ranked",
   filters: {
     search: "",
-    dateRanges: [],
+    fromYears: [],
+    toYears: [],
     windowSizes: [],
     sentimentModels: [],
     methods: [],
@@ -33,7 +34,8 @@ const elements = {
   benchmarkCount: document.querySelector("#benchmarkCount"),
   reportGrid: document.querySelector("#reportGrid"),
   searchInput: document.querySelector("#searchInput"),
-  dateRangeFilter: document.querySelector("#dateRangeFilter"),
+  fromYearFilter: document.querySelector("#fromYearFilter"),
+  toYearFilter: document.querySelector("#toYearFilter"),
   windowFilter: document.querySelector("#windowFilter"),
   sentimentFilter: document.querySelector("#sentimentFilter"),
   methodFilter: document.querySelector("#methodFilter"),
@@ -158,15 +160,21 @@ function uniqueSentimentModels(rows) {
   return preferred.filter((value) => found.has(value));
 }
 
-function dateRange(row) {
-  return `${row.since_date} to ${row.until_date}`;
+function yearFromDate(value) {
+  return String(value || "").slice(0, 4);
 }
 
-function displayDateRange(valueOrRow) {
-  const value = typeof valueOrRow === "string" ? valueOrRow : dateRange(valueOrRow);
-  const [start, end] = value.split(" to ");
-  if (!start || !end) return value;
-  return `${start.slice(0, 4)} to ${end.slice(0, 4)}`;
+function fromYear(row) {
+  return yearFromDate(row.since_date);
+}
+
+function toYear(row) {
+  return yearFromDate(row.until_date);
+}
+
+function uniqueYears(rows, key) {
+  const values = rows.map((row) => yearFromDate(row[key])).filter(Boolean);
+  return [...new Set(values)].sort((a, b) => Number(a) - Number(b));
 }
 
 function renderCheckboxGroup(container, values, name) {
@@ -179,7 +187,7 @@ function renderCheckboxGroup(container, values, name) {
     label.htmlFor = id;
     label.innerHTML = `
       <input id="${escapeHtml(id)}" type="checkbox" name="${escapeHtml(name)}" value="${escapeHtml(value)}">
-      <span>${escapeHtml(name === "date-range" ? displayDateRange(value) : value)}</span>
+      <span>${escapeHtml(value)}</span>
     `;
     container.appendChild(label);
   });
@@ -225,7 +233,8 @@ function matchesFilters(row) {
     if (!haystack.includes(search)) return false;
   }
 
-  if (state.filters.dateRanges.length && !state.filters.dateRanges.includes(dateRange(row))) return false;
+  if (state.filters.fromYears.length && !state.filters.fromYears.includes(fromYear(row))) return false;
+  if (state.filters.toYears.length && !state.filters.toYears.includes(toYear(row))) return false;
   if (state.filters.windowSizes.length && !state.filters.windowSizes.includes(String(row.window_size))) return false;
   if (state.filters.methods.length && !state.filters.methods.includes(row.filtering_type)) return false;
   if (state.filters.mValues.length && !state.filters.mValues.includes(String(row.min_matches))) return false;
@@ -260,7 +269,7 @@ function renderRankedTable() {
   const visible = rows.slice(0, 250);
 
   if (!visible.length) {
-    elements.rankedTable.innerHTML = `<tr><td class="empty" colspan="11">No ranked FSI versions match the current filters.</td></tr>`;
+    elements.rankedTable.innerHTML = `<tr><td class="empty" colspan="12">No ranked FSI versions match the current filters.</td></tr>`;
     return;
   }
 
@@ -273,7 +282,8 @@ function renderRankedTable() {
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(row.filtering_type)}</span></td>
         <td>${escapeHtml(row.min_matches)}</td>
-        <td>${escapeHtml(displayDateRange(row))}</td>
+        <td>${escapeHtml(fromYear(row))}</td>
+        <td>${escapeHtml(toYear(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
         <td>${formatNumber(row.epu_pearson_r)}</td>
         <td>${formatNumber(row.cfsi_pearson_r)}</td>
@@ -289,7 +299,7 @@ function renderBenchmarkTable() {
   const visible = rows.slice(0, 350);
 
   if (!visible.length) {
-    elements.benchmarkTable.innerHTML = `<tr><td class="empty" colspan="13">No benchmark validation rows match the current filters.</td></tr>`;
+    elements.benchmarkTable.innerHTML = `<tr><td class="empty" colspan="14">No benchmark validation rows match the current filters.</td></tr>`;
     return;
   }
 
@@ -302,7 +312,8 @@ function renderBenchmarkTable() {
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(row.filtering_type)}</span></td>
         <td>${escapeHtml(row.min_matches)}</td>
-        <td>${escapeHtml(displayDateRange(row))}</td>
+        <td>${escapeHtml(fromYear(row))}</td>
+        <td>${escapeHtml(toYear(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
         <td>${formatNumber(row.pearson_r)}</td>
         <td>${formatNumber(row.spearman_rho)}</td>
@@ -367,8 +378,8 @@ function renderCurrentView() {
 
 function populateFilters() {
   const combined = [...state.ranked, ...state.benchmark];
-  const ranges = [...new Set(combined.map(dateRange))].sort();
-  renderCheckboxGroup(elements.dateRangeFilter, ranges, "date-range");
+  renderCheckboxGroup(elements.fromYearFilter, uniqueYears(combined, "since_date"), "from-year");
+  renderCheckboxGroup(elements.toYearFilter, uniqueYears(combined, "until_date"), "to-year");
   renderCheckboxGroup(elements.windowFilter, uniqueSorted(combined, "window_size", true), "window-size");
   renderCheckboxGroup(elements.sentimentFilter, uniqueSentimentModels(combined), "sentiment-model");
   renderCheckboxGroup(elements.methodFilter, uniqueSorted(combined, "filtering_type"), "method");
@@ -377,7 +388,8 @@ function populateFilters() {
 
 function syncFiltersFromInputs() {
   state.filters.search = elements.searchInput.value.trim();
-  state.filters.dateRanges = selectedCheckboxValues(elements.dateRangeFilter);
+  state.filters.fromYears = selectedCheckboxValues(elements.fromYearFilter);
+  state.filters.toYears = selectedCheckboxValues(elements.toYearFilter);
   state.filters.windowSizes = selectedCheckboxValues(elements.windowFilter);
   state.filters.sentimentModels = selectedCheckboxValues(elements.sentimentFilter);
   state.filters.methods = selectedCheckboxValues(elements.methodFilter);
