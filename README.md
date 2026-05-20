@@ -6,7 +6,7 @@ and grid-search validation results.
 The site reads CSV reports from:
 
 ```text
-assets/grid_search_20260520_104155
+assets/grid_validation_20260520_114434
 ```
 
 The large `generated_fsi_versions.pkl` file is intentionally not included in the

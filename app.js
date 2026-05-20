@@ -1,4 +1,4 @@
-const DATA_DIR = "assets/grid_search_20260520_104155";
+const DATA_DIR = "assets/grid_validation_20260520_114434";
 const FILES = {
   ranked: `${DATA_DIR}/grid_validation_ranked_report.csv`,
   all: `${DATA_DIR}/grid_validation_results_all.csv`,
@@ -343,6 +343,12 @@ function renderReports() {
       rows: state.manifest.length,
       description: "Generated FSI IDs, parameter values, and preprocessing notes.",
     },
+    {
+      title: "Reused FSI Pickle Note",
+      file: "reused_fsi_pickle.txt",
+      rows: "",
+      description: "Reference to the FSI pickle that was reused for this validation run.",
+    },
   ];
 
   elements.reportGrid.innerHTML = reports
@@ -350,7 +356,7 @@ function renderReports() {
       <article class="report-card">
         <h3>${escapeHtml(report.title)}</h3>
         <p>${escapeHtml(report.description)}</p>
-        <p><strong>${formatInteger(report.rows)}</strong> rows</p>
+        ${report.rows === "" ? "" : `<p><strong>${formatInteger(report.rows)}</strong> rows</p>`}
         <a href="${DATA_DIR}/${report.file}" download>Download ${escapeHtml(report.file)}</a>
       </article>
     `)
