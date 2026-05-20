@@ -163,6 +163,7 @@ function dateRange(row) {
 }
 
 function renderCheckboxGroup(container, values, name) {
+  if (!container) return;
   container.innerHTML = "";
   values.forEach((value) => {
     const id = `${name}-${String(value).replace(/[^a-z0-9]+/gi, "-")}`;
@@ -178,6 +179,7 @@ function renderCheckboxGroup(container, values, name) {
 }
 
 function selectedCheckboxValues(container) {
+  if (!container) return [];
   return [...container.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
 }
 
