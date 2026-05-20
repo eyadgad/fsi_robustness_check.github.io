@@ -17,7 +17,10 @@ const state = {
     windowSize: "",
     sentimentSet: "",
     method: "",
+    variant: "",
     mValue: "",
+    dailyWindow: "",
+    ewmHalflife: "",
     benchmark: "",
   },
 };
@@ -38,7 +41,10 @@ const elements = {
   windowFilter: document.querySelector("#windowFilter"),
   sentimentFilter: document.querySelector("#sentimentFilter"),
   methodFilter: document.querySelector("#methodFilter"),
+  variantFilter: document.querySelector("#variantFilter"),
   mFilter: document.querySelector("#mFilter"),
+  dailyWindowFilter: document.querySelector("#dailyWindowFilter"),
+  ewmFilter: document.querySelector("#ewmFilter"),
   benchmarkFilter: document.querySelector("#benchmarkFilter"),
   resetFilters: document.querySelector("#resetFilters"),
   downloadRanked: document.querySelector("#downloadRanked"),
@@ -205,7 +211,10 @@ function matchesFilters(row, includeBenchmark = false) {
   if (state.filters.windowSize && String(row.window_size) !== state.filters.windowSize) return false;
   if (state.filters.sentimentSet && row.sentiment_set !== state.filters.sentimentSet) return false;
   if (state.filters.method && row.filtering_type !== state.filters.method) return false;
+  if (state.filters.variant && row.variant !== state.filters.variant) return false;
   if (state.filters.mValue && String(row.min_matches) !== state.filters.mValue) return false;
+  if (state.filters.dailyWindow && String(row.daily_window) !== state.filters.dailyWindow) return false;
+  if (state.filters.ewmHalflife && String(row.ewm_halflife) !== state.filters.ewmHalflife) return false;
   if (includeBenchmark && state.filters.benchmark && row.benchmark_index !== state.filters.benchmark) return false;
 
   return true;
@@ -339,7 +348,10 @@ function populateFilters() {
   addOptions(elements.windowFilter, uniqueSorted(combined, "window_size", true), "All windows");
   addOptions(elements.sentimentFilter, uniqueSorted(combined, "sentiment_set"), "All sentiment sets");
   addOptions(elements.methodFilter, uniqueSorted(combined, "filtering_type"), "All methods");
+  addOptions(elements.variantFilter, uniqueSorted(combined, "variant"), "All variants");
   addOptions(elements.mFilter, uniqueSorted(combined, "min_matches", true), "All m values");
+  addOptions(elements.dailyWindowFilter, uniqueSorted(combined, "daily_window", true), "All daily windows");
+  addOptions(elements.ewmFilter, uniqueSorted(combined, "ewm_halflife", true), "All halflives");
   addOptions(elements.benchmarkFilter, uniqueSorted(state.benchmark, "benchmark_index"), "All benchmarks");
 }
 
@@ -349,7 +361,10 @@ function syncFiltersFromInputs() {
   state.filters.windowSize = elements.windowFilter.value;
   state.filters.sentimentSet = elements.sentimentFilter.value;
   state.filters.method = elements.methodFilter.value;
+  state.filters.variant = elements.variantFilter.value;
   state.filters.mValue = elements.mFilter.value;
+  state.filters.dailyWindow = elements.dailyWindowFilter.value;
+  state.filters.ewmHalflife = elements.ewmFilter.value;
   state.filters.benchmark = elements.benchmarkFilter.value;
 }
 
@@ -360,7 +375,10 @@ function resetFilters() {
     elements.windowFilter,
     elements.sentimentFilter,
     elements.methodFilter,
+    elements.variantFilter,
     elements.mFilter,
+    elements.dailyWindowFilter,
+    elements.ewmFilter,
     elements.benchmarkFilter,
   ].forEach((select) => {
     select.value = "";
@@ -391,7 +409,10 @@ function wireEvents() {
     elements.windowFilter,
     elements.sentimentFilter,
     elements.methodFilter,
+    elements.variantFilter,
     elements.mFilter,
+    elements.dailyWindowFilter,
+    elements.ewmFilter,
     elements.benchmarkFilter,
   ].forEach((control) => {
     control.addEventListener("input", () => {
