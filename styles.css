@@ -333,11 +333,6 @@ code,
   font-weight: 700;
 }
 
-.note-cell {
-  max-width: 420px;
-  color: var(--muted);
-}
-
 .report-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

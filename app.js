@@ -360,7 +360,7 @@ function renderBenchmarkTable() {
   const visible = groups.slice(0, 120);
 
   if (!visible.length) {
-    elements.benchmarkTable.innerHTML = `<tr><td class="empty" colspan="14">No benchmark validation rows match the current filters.</td></tr>`;
+    elements.benchmarkTable.innerHTML = `<tr><td class="empty" colspan="13">No benchmark validation rows match the current filters.</td></tr>`;
     return;
   }
 
@@ -385,7 +385,6 @@ function renderBenchmarkTable() {
             <td>${formatNumber(row.spearman_rho)}</td>
             <td>${formatNumber(row.rmse)}</td>
             <td>${escapeHtml(row.optimal_lag_dir || "-")} ${row.optimal_lag !== "" ? `(${row.optimal_lag})` : ""}</td>
-            <td class="note-cell">${escapeHtml(row.notes || row.alignment_notes || "")}</td>
           </tr>
         `)
         .join("");
@@ -417,7 +416,7 @@ function renderReports() {
       title: "FSI Manifest",
       file: "generated_fsi_versions_manifest.csv",
       rows: state.manifest.length,
-      description: "Generated FSI IDs, parameter values, and preprocessing notes.",
+      description: "Generated FSI IDs and parameter values.",
     },
     {
       title: "Reused FSI Pickle Note",
