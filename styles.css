@@ -276,6 +276,10 @@ table {
   min-width: 1160px;
 }
 
+.wide-table {
+  min-width: 1680px;
+}
+
 th,
 td {
   padding: 10px 12px;

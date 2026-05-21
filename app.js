@@ -30,8 +30,10 @@ const elements = {
   summaryBestId: document.querySelector("#summaryBestId"),
   rankedTable: document.querySelector("#rankedTable"),
   benchmarkTable: document.querySelector("#benchmarkTable"),
+  msrTable: document.querySelector("#msrTable"),
   rankedCount: document.querySelector("#rankedCount"),
   benchmarkCount: document.querySelector("#benchmarkCount"),
+  msrCount: document.querySelector("#msrCount"),
   reportGrid: document.querySelector("#reportGrid"),
   searchInput: document.querySelector("#searchInput"),
   fromYearFilter: document.querySelector("#fromYearFilter"),
@@ -43,6 +45,7 @@ const elements = {
   resetFilters: document.querySelector("#resetFilters"),
   downloadRanked: document.querySelector("#downloadRanked"),
   downloadBenchmarks: document.querySelector("#downloadBenchmarks"),
+  downloadMsr: document.querySelector("#downloadMsr"),
 };
 
 const numberColumns = new Set([
@@ -71,6 +74,26 @@ const numberColumns = new Set([
   "vixc_pearson_r",
   "optimal_lag",
   "optimal_lag_r",
+  "markov_llf",
+  "markov_aic",
+  "markov_bic",
+  "high_regime_idx",
+  "high_regime_frac",
+  "epu_markov_llf",
+  "epu_markov_aic",
+  "epu_markov_bic",
+  "epu_high_regime_frac",
+  "cfsi_markov_llf",
+  "cfsi_markov_aic",
+  "cfsi_markov_bic",
+  "cfsi_high_regime_frac",
+  "vixc_markov_llf",
+  "vixc_markov_aic",
+  "vixc_markov_bic",
+  "vixc_high_regime_frac",
+  "epu_cfsi_regime_concordance",
+  "epu_vixc_regime_concordance",
+  "cfsi_vixc_regime_concordance",
 ]);
 
 function parseCsv(text) {
@@ -240,6 +263,20 @@ function formatInteger(value) {
   return Number(value).toLocaleString();
 }
 
+function formatPercent(value, digits = 1) {
+  if (value === "" || value == null || Number.isNaN(Number(value))) return "-";
+  return `${(Number(value) * 100).toFixed(digits)}%`;
+}
+
+function formatRegimeMeans(value) {
+  const parts = String(value || "")
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return "-";
+  return parts.map((part) => formatNumber(part, 3)).join(" / ");
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -307,6 +344,16 @@ function benchmarkRowsByFsi() {
   return groups;
 }
 
+function filteredBenchmarkGroups() {
+  const groupedBenchmarkRows = benchmarkRowsByFsi();
+  return filteredRankedRows()
+    .map((rankedRow) => ({
+      rankedRow,
+      benchmarkRows: groupedBenchmarkRows.get(rankedRow.fsi_id) || [],
+    }))
+    .filter((group) => group.benchmarkRows.length);
+}
+
 function renderSummary() {
   const best = state.ranked[0] || {};
   elements.summaryFsi.textContent = formatInteger(state.manifest.length || state.ranked.length);
@@ -346,14 +393,7 @@ function renderRankedTable() {
 }
 
 function renderBenchmarkTable() {
-  const rankedRows = filteredRankedRows();
-  const groupedBenchmarkRows = benchmarkRowsByFsi();
-  const groups = rankedRows
-    .map((rankedRow) => ({
-      rankedRow,
-      benchmarkRows: groupedBenchmarkRows.get(rankedRow.fsi_id) || [],
-    }))
-    .filter((group) => group.benchmarkRows.length);
+  const groups = filteredBenchmarkGroups();
   const benchmarkRowCount = groups.reduce((total, group) => total + group.benchmarkRows.length, 0);
   elements.benchmarkCount.textContent =
     `${groups.length.toLocaleString()} matching FSI versions, ${benchmarkRowCount.toLocaleString()} benchmark rows`;
@@ -385,6 +425,50 @@ function renderBenchmarkTable() {
             <td>${formatNumber(row.spearman_rho)}</td>
             <td>${formatNumber(row.rmse)}</td>
             <td>${escapeHtml(row.optimal_lag_dir || "-")} ${row.optimal_lag !== "" ? `(${row.optimal_lag})` : ""}</td>
+          </tr>
+        `)
+        .join("");
+    })
+    .join("");
+}
+
+function renderMsrTable() {
+  const groups = filteredBenchmarkGroups();
+  const msrRowCount = groups.reduce((total, group) => total + group.benchmarkRows.length, 0);
+  elements.msrCount.textContent =
+    `${groups.length.toLocaleString()} matching FSI versions, ${msrRowCount.toLocaleString()} MSR rows`;
+  const visible = groups.slice(0, 120);
+
+  if (!visible.length) {
+    elements.msrTable.innerHTML = `<tr><td class="empty" colspan="17">No MSR rows match the current filters.</td></tr>`;
+    return;
+  }
+
+  elements.msrTable.innerHTML = visible
+    .map((group) => {
+      const rowspan = group.benchmarkRows.length;
+      return group.benchmarkRows
+        .map((row, index) => `
+          <tr class="${index === 0 ? "benchmark-group-start" : ""}">
+            ${index === 0 ? `
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(group.rankedRow.rank)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell"><span class="mono">${escapeHtml(group.rankedRow.fsi_id)}</span></td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.sentiment_set)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell"><span class="pill">${escapeHtml(methodValue(group.rankedRow))}</span></td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(mValue(group.rankedRow))}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(fromYear(group.rankedRow))}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(toYear(group.rankedRow))}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.window_size)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatPercent(group.rankedRow.epu_cfsi_regime_concordance)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatPercent(group.rankedRow.epu_vixc_regime_concordance)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatPercent(group.rankedRow.cfsi_vixc_regime_concordance)}</td>
+            ` : ""}
+            <td class="benchmark-name">${escapeHtml(row.benchmark_index)}</td>
+            <td>${formatNumber(row.markov_llf, 2)}</td>
+            <td>${formatNumber(row.markov_aic, 2)}</td>
+            <td>${formatNumber(row.markov_bic, 2)}</td>
+            <td>${formatPercent(row.high_regime_frac)}</td>
+            <td>${escapeHtml(formatRegimeMeans(row.regime_means))}</td>
           </tr>
         `)
         .join("");
@@ -441,6 +525,7 @@ function renderReports() {
 function renderCurrentView() {
   renderRankedTable();
   renderBenchmarkTable();
+  renderMsrTable();
 }
 
 function populateFilters() {
@@ -510,6 +595,9 @@ function wireEvents() {
   });
   elements.downloadBenchmarks.addEventListener("click", () => {
     window.location.href = FILES.benchmark;
+  });
+  elements.downloadMsr.addEventListener("click", () => {
+    window.location.href = FILES.all;
   });
 }
 
