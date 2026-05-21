@@ -1,4 +1,4 @@
-const DATA_DIR = "assets/grid_validation_20260520_114434";
+const DATA_DIR = "assets/grid_search_20260520_194443";
 const FILES = {
   ranked: `${DATA_DIR}/grid_validation_ranked_report.csv`,
   all: `${DATA_DIR}/grid_validation_results_all.csv`,
@@ -501,12 +501,6 @@ function renderReports() {
       file: "generated_fsi_versions_manifest.csv",
       rows: state.manifest.length,
       description: "Generated FSI IDs and parameter values.",
-    },
-    {
-      title: "Reused FSI Pickle Note",
-      file: "reused_fsi_pickle.txt",
-      rows: "",
-      description: "Reference to the FSI pickle that was reused for this validation run.",
     },
   ];
 
