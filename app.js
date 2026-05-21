@@ -11,6 +11,10 @@ const state = {
   benchmark: [],
   manifest: [],
   view: "ranked",
+  compare: {
+    rankedRow: null,
+    benchmarkRowsByIndex: new Map(),
+  },
   filters: {
     search: "",
     fromYears: [],
@@ -35,6 +39,10 @@ const elements = {
   benchmarkCount: document.querySelector("#benchmarkCount"),
   msrCount: document.querySelector("#msrCount"),
   reportGrid: document.querySelector("#reportGrid"),
+  compareInput: document.querySelector("#compareInput"),
+  compareButton: document.querySelector("#compareButton"),
+  clearCompare: document.querySelector("#clearCompare"),
+  compareStatus: document.querySelector("#compareStatus"),
   searchInput: document.querySelector("#searchInput"),
   fromYearFilter: document.querySelector("#fromYearFilter"),
   toYearFilter: document.querySelector("#toYearFilter"),
@@ -277,6 +285,48 @@ function formatRegimeMeans(value) {
   return parts.map((part) => formatNumber(part, 3)).join(" / ");
 }
 
+function numericValue(value) {
+  if (value === "" || value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function diffClass(diff) {
+  if (diff > 0) return "diff-positive";
+  if (diff < 0) return "diff-negative";
+  return "diff-neutral";
+}
+
+function formatSignedDiff(diff, digits = 4, suffix = "") {
+  const sign = diff > 0 ? "+" : "";
+  return `<span class="${diffClass(diff)}">${sign}${diff.toFixed(digits)}${suffix}</span>`;
+}
+
+function compareValue(value, baseValue, digits = 4) {
+  if (!state.compare.rankedRow) return formatNumber(value, digits);
+  const current = numericValue(value);
+  const base = numericValue(baseValue);
+  if (current == null || base == null) return "-";
+  return formatSignedDiff(current - base, digits);
+}
+
+function comparePercent(value, baseValue, digits = 1) {
+  if (!state.compare.rankedRow) return formatPercent(value, digits);
+  const current = numericValue(value);
+  const base = numericValue(baseValue);
+  if (current == null || base == null) return "-";
+  return formatSignedDiff((current - base) * 100, digits, "%");
+}
+
+function formatRegimeMeansDiff(value, baseValue) {
+  if (!state.compare.rankedRow) return escapeHtml(formatRegimeMeans(value));
+  const current = String(value || "").split(";").map(numericValue).filter((part) => part != null);
+  const base = String(baseValue || "").split(";").map(numericValue).filter((part) => part != null);
+  if (!current.length || current.length !== base.length) return "-";
+  const parts = current.map((part, index) => formatSignedDiff(part - base[index], 3));
+  return `<span class="diff-parts">${parts.join("<span>/</span>")}</span>`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -354,6 +404,43 @@ function filteredBenchmarkGroups() {
     .filter((group) => group.benchmarkRows.length);
 }
 
+function findCompareRow(value) {
+  const term = String(value || "").trim();
+  if (!term) return null;
+  const lowerTerm = term.toLowerCase();
+
+  const byId = state.ranked.find((row) => String(row.fsi_id || "").toLowerCase() === lowerTerm);
+  if (byId) return byId;
+
+  if (/^\d+$/.test(term)) {
+    return state.ranked.find((row) => String(row.rank) === String(Number(term))) || null;
+  }
+
+  return null;
+}
+
+function setCompareRow(row) {
+  const benchmarkRows = benchmarkRowsByFsi().get(row.fsi_id) || [];
+  state.compare.rankedRow = row;
+  state.compare.benchmarkRowsByIndex = new Map(
+    benchmarkRows.map((benchmarkRow) => [benchmarkRow.benchmark_index, benchmarkRow]),
+  );
+  elements.compareStatus.textContent = `Comparing to rank ${row.rank}: ${row.fsi_id}`;
+  elements.compareStatus.classList.remove("error");
+}
+
+function clearCompareState() {
+  state.compare.rankedRow = null;
+  state.compare.benchmarkRowsByIndex = new Map();
+  elements.compareStatus.textContent = "No comparison selected";
+  elements.compareStatus.classList.remove("error");
+}
+
+function compareBenchmarkRow(row) {
+  if (!state.compare.rankedRow) return null;
+  return state.compare.benchmarkRowsByIndex.get(row.benchmark_index) || null;
+}
+
 function renderSummary() {
   const best = state.ranked[0] || {};
   elements.summaryFsi.textContent = formatInteger(state.manifest.length || state.ranked.length);
@@ -377,16 +464,16 @@ function renderRankedTable() {
       <tr>
         <td>${formatInteger(row.rank)}</td>
         <td><span class="mono">${escapeHtml(row.fsi_id)}</span></td>
-        <td>${formatNumber(row.rank_score)}</td>
+        <td>${compareValue(row.rank_score, state.compare.rankedRow?.rank_score)}</td>
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(methodValue(row))}</span></td>
         <td>${escapeHtml(mValue(row))}</td>
         <td>${escapeHtml(fromYear(row))}</td>
         <td>${escapeHtml(toYear(row))}</td>
         <td>${escapeHtml(row.window_size)}</td>
-        <td>${formatNumber(row.epu_pearson_r)}</td>
-        <td>${formatNumber(row.cfsi_pearson_r)}</td>
-        <td>${formatNumber(row.vixc_pearson_r)}</td>
+        <td>${compareValue(row.epu_pearson_r, state.compare.rankedRow?.epu_pearson_r)}</td>
+        <td>${compareValue(row.cfsi_pearson_r, state.compare.rankedRow?.cfsi_pearson_r)}</td>
+        <td>${compareValue(row.vixc_pearson_r, state.compare.rankedRow?.vixc_pearson_r)}</td>
       </tr>
     `)
     .join("");
@@ -408,7 +495,9 @@ function renderBenchmarkTable() {
     .map((group) => {
       const rowspan = group.benchmarkRows.length;
       return group.benchmarkRows
-        .map((row, index) => `
+        .map((row, index) => {
+          const baseBenchmarkRow = compareBenchmarkRow(row);
+          return `
           <tr class="${index === 0 ? "benchmark-group-start" : ""}">
             ${index === 0 ? `
               <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(group.rankedRow.rank)}</td>
@@ -421,12 +510,13 @@ function renderBenchmarkTable() {
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.window_size)}</td>
             ` : ""}
             <td class="benchmark-name">${escapeHtml(row.benchmark_index)}</td>
-            <td>${formatNumber(row.pearson_r)}</td>
-            <td>${formatNumber(row.spearman_rho)}</td>
-            <td>${formatNumber(row.rmse)}</td>
+            <td>${compareValue(row.pearson_r, baseBenchmarkRow?.pearson_r)}</td>
+            <td>${compareValue(row.spearman_rho, baseBenchmarkRow?.spearman_rho)}</td>
+            <td>${compareValue(row.rmse, baseBenchmarkRow?.rmse)}</td>
             <td>${escapeHtml(row.optimal_lag_dir || "-")} ${row.optimal_lag !== "" ? `(${row.optimal_lag})` : ""}</td>
           </tr>
-        `)
+        `;
+        })
         .join("");
     })
     .join("");
@@ -448,7 +538,9 @@ function renderMsrTable() {
     .map((group) => {
       const rowspan = group.benchmarkRows.length;
       return group.benchmarkRows
-        .map((row, index) => `
+        .map((row, index) => {
+          const baseBenchmarkRow = compareBenchmarkRow(row);
+          return `
           <tr class="${index === 0 ? "benchmark-group-start" : ""}">
             ${index === 0 ? `
               <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(group.rankedRow.rank)}</td>
@@ -459,18 +551,19 @@ function renderMsrTable() {
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(fromYear(group.rankedRow))}</td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(toYear(group.rankedRow))}</td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.window_size)}</td>
-              <td rowspan="${rowspan}" class="rowspan-cell">${formatPercent(group.rankedRow.epu_cfsi_regime_concordance)}</td>
-              <td rowspan="${rowspan}" class="rowspan-cell">${formatPercent(group.rankedRow.epu_vixc_regime_concordance)}</td>
-              <td rowspan="${rowspan}" class="rowspan-cell">${formatPercent(group.rankedRow.cfsi_vixc_regime_concordance)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${comparePercent(group.rankedRow.epu_cfsi_regime_concordance, state.compare.rankedRow?.epu_cfsi_regime_concordance)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${comparePercent(group.rankedRow.epu_vixc_regime_concordance, state.compare.rankedRow?.epu_vixc_regime_concordance)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${comparePercent(group.rankedRow.cfsi_vixc_regime_concordance, state.compare.rankedRow?.cfsi_vixc_regime_concordance)}</td>
             ` : ""}
             <td class="benchmark-name">${escapeHtml(row.benchmark_index)}</td>
-            <td>${formatNumber(row.markov_llf, 2)}</td>
-            <td>${formatNumber(row.markov_aic, 2)}</td>
-            <td>${formatNumber(row.markov_bic, 2)}</td>
-            <td>${formatPercent(row.high_regime_frac)}</td>
-            <td>${escapeHtml(formatRegimeMeans(row.regime_means))}</td>
+            <td>${compareValue(row.markov_llf, baseBenchmarkRow?.markov_llf, 2)}</td>
+            <td>${compareValue(row.markov_aic, baseBenchmarkRow?.markov_aic, 2)}</td>
+            <td>${compareValue(row.markov_bic, baseBenchmarkRow?.markov_bic, 2)}</td>
+            <td>${comparePercent(row.high_regime_frac, baseBenchmarkRow?.high_regime_frac)}</td>
+            <td>${formatRegimeMeansDiff(row.regime_means, baseBenchmarkRow?.regime_means)}</td>
           </tr>
-        `)
+        `;
+        })
         .join("");
     })
     .join("");
@@ -551,6 +644,26 @@ function resetFilters() {
   renderCurrentView();
 }
 
+function applyCompare() {
+  const row = findCompareRow(elements.compareInput.value);
+  if (!row) {
+    clearCompareState();
+    elements.compareStatus.textContent = "Rank or FSI ID not found";
+    elements.compareStatus.classList.add("error");
+    renderCurrentView();
+    return;
+  }
+
+  setCompareRow(row);
+  renderCurrentView();
+}
+
+function clearCompare() {
+  elements.compareInput.value = "";
+  clearCompareState();
+  renderCurrentView();
+}
+
 function switchView(view) {
   state.view = view;
   document.querySelectorAll(".tab").forEach((button) => {
@@ -584,6 +697,13 @@ function wireEvents() {
   });
 
   elements.resetFilters.addEventListener("click", resetFilters);
+  elements.compareButton.addEventListener("click", applyCompare);
+  elements.clearCompare.addEventListener("click", clearCompare);
+  elements.compareInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      applyCompare();
+    }
+  });
   elements.downloadRanked.addEventListener("click", () => {
     window.location.href = FILES.ranked;
   });

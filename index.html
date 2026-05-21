@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FSI Robustness Check</title>
-    <link rel="stylesheet" href="styles.css?v=grid-194443">
+    <link rel="stylesheet" href="styles.css?v=compare-mode">
   </head>
   <body>
     <header class="app-header">
@@ -39,6 +39,18 @@
         <div class="summary-item">
           <span class="label">Best FSI ID</span>
           <strong id="summaryBestId">-</strong>
+        </div>
+      </section>
+
+      <section class="compare-panel" aria-label="Compare FSI">
+        <div class="compare-row">
+          <label class="compare-input">
+            Compare to rank or FSI ID
+            <input id="compareInput" type="text" placeholder="1 or fsi_2a9d11949be8">
+          </label>
+          <button id="compareButton" class="primary-button">Compare</button>
+          <button id="clearCompare" class="secondary-button">Clear</button>
+          <span id="compareStatus" class="compare-status">No comparison selected</span>
         </div>
       </section>
 
@@ -193,6 +205,6 @@
       </section>
     </main>
 
-    <script src="app.js?v=grid-194443"></script>
+    <script src="app.js?v=compare-mode"></script>
   </body>
 </html>

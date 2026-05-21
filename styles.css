@@ -105,6 +105,7 @@ main {
 }
 
 .summary-item,
+.compare-panel,
 .filter-panel,
 .view {
   background: var(--panel);
@@ -140,6 +141,18 @@ main {
   padding: 14px;
 }
 
+.compare-panel {
+  margin-bottom: 14px;
+  padding: 14px;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 380px) auto auto minmax(220px, 1fr);
+  gap: 10px;
+  align-items: end;
+}
+
 .filter-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -148,6 +161,7 @@ main {
 }
 
 .filter-search,
+.compare-input,
 .filter-group legend {
   display: grid;
   gap: 5px;
@@ -156,7 +170,8 @@ main {
   font-weight: 700;
 }
 
-input[type="search"] {
+input[type="search"],
+input[type="text"] {
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;
@@ -171,6 +186,17 @@ input:focus,
 button:focus {
   outline: 3px solid rgba(15, 118, 110, 0.18);
   outline-offset: 1px;
+}
+
+.compare-status {
+  align-self: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.compare-status.error {
+  color: #b42318;
 }
 
 .filter-group {
@@ -318,6 +344,27 @@ tbody tr:hover {
   font-weight: 700;
 }
 
+.diff-positive {
+  color: #067647;
+  font-weight: 800;
+}
+
+.diff-negative {
+  color: #b42318;
+  font-weight: 800;
+}
+
+.diff-neutral {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.diff-parts {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 code,
 .mono {
   font-family: "Cascadia Mono", Consolas, monospace;
@@ -387,6 +434,14 @@ code,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .compare-row {
+    grid-template-columns: minmax(240px, 1fr) auto auto;
+  }
+
+  .compare-status {
+    grid-column: 1 / -1;
+  }
+
   .report-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -415,6 +470,7 @@ code,
   }
 
   .summary-grid,
+  .compare-row,
   .filter-row,
   .report-grid {
     grid-template-columns: 1fr;
