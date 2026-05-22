@@ -1,9 +1,11 @@
 const DATA_DIR = "assets/grid_search_20260520_194443";
+const DATA_VERSION = "extended-20260522";
+const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
-  ranked: `${DATA_DIR}/grid_validation_ranked_report.csv`,
-  all: `${DATA_DIR}/grid_validation_results_all.csv`,
-  benchmark: `${DATA_DIR}/validation_results_by_benchmark.csv`,
-  manifest: `${DATA_DIR}/generated_fsi_versions_manifest.csv`,
+  ranked: dataFile("grid_validation_ranked_report.csv"),
+  all: dataFile("grid_validation_results_all.csv"),
+  benchmark: dataFile("validation_results_by_benchmark.csv"),
+  manifest: dataFile("generated_fsi_versions_manifest.csv"),
 };
 
 const state = {
@@ -603,7 +605,7 @@ function renderReports() {
         <h3>${escapeHtml(report.title)}</h3>
         <p>${escapeHtml(report.description)}</p>
         ${report.rows === "" ? "" : `<p><strong>${formatInteger(report.rows)}</strong> rows</p>`}
-        <a href="${DATA_DIR}/${report.file}" download>Download ${escapeHtml(report.file)}</a>
+        <a href="${dataFile(report.file)}" download>Download ${escapeHtml(report.file)}</a>
       </article>
     `)
     .join("");
