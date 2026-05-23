@@ -1,5 +1,5 @@
-const DATA_DIR = "assets/grid_search_20260520_194443";
-const DATA_VERSION = "extended-20260522";
+const DATA_DIR = "assets/grid_search_20260522_125148";
+const DATA_VERSION = "final-20260522";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -7,6 +7,7 @@ const FILES = {
   benchmark: dataFile("validation_results_by_benchmark.csv"),
   manifest: dataFile("generated_fsi_versions_manifest.csv"),
 };
+const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 const state = {
   ranked: [],
@@ -234,12 +235,28 @@ function fromYear(row) {
 }
 
 function toYear(row) {
-  return yearFromDate(row.until_date);
+  const parts = String(row.until_date || "").slice(0, 10).split("-");
+  if (parts.length < 2) return "";
+  const month = Number(parts[1]);
+  const label = MONTH_LABELS[month - 1] || parts[1];
+  return `${label} ${parts[0]}`;
 }
 
 function uniqueYears(rows, key) {
   const values = rows.map((row) => yearFromDate(row[key])).filter(Boolean);
   return [...new Set(values)].sort((a, b) => Number(a) - Number(b));
+}
+
+function uniqueEndPeriods(rows) {
+  const byDate = new Map();
+  rows.forEach((row) => {
+    const raw = String(row.until_date || "").slice(0, 10);
+    const label = toYear(row);
+    if (raw && label) byDate.set(raw, label);
+  });
+  return [...byDate.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, label]) => label);
 }
 
 function renderCheckboxGroup(container, values, name) {
@@ -620,7 +637,7 @@ function renderCurrentView() {
 function populateFilters() {
   const combined = [...state.ranked, ...state.benchmark];
   renderCheckboxGroup(elements.fromYearFilter, uniqueYears(combined, "since_date"), "from-year");
-  renderCheckboxGroup(elements.toYearFilter, uniqueYears(combined, "until_date"), "to-year");
+  renderCheckboxGroup(elements.toYearFilter, uniqueEndPeriods(combined), "to-period");
   renderCheckboxGroup(elements.windowFilter, uniqueSorted(combined, "window_size", true), "window-size");
   renderCheckboxGroup(elements.sentimentFilter, uniqueSentimentModels(combined), "sentiment-model");
   renderCheckboxGroup(elements.methodFilter, uniqueMethods(combined), "method");
