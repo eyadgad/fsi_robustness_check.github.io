@@ -1,5 +1,5 @@
 const DATA_DIR = "assets/grid_search_20260522_125148";
-const DATA_VERSION = "final-20260522";
+const DATA_VERSION = "final-20260522-end-labels";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -239,7 +239,7 @@ function toYear(row) {
   if (parts.length < 2) return "";
   const month = Number(parts[1]);
   const label = MONTH_LABELS[month - 1] || parts[1];
-  return `${label} ${parts[0]}`;
+  return `${label}${parts[0]}`;
 }
 
 function uniqueYears(rows, key) {
