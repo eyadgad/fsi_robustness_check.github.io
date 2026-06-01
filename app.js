@@ -1,5 +1,5 @@
-﻿const DATA_DIR = "assets/grid_search_20260522_125148";
-const DATA_VERSION = "final-20260522-end-labels";
+﻿const DATA_DIR = "assets/grid_search_20260601_001500";
+const DATA_VERSION = "final-20260601-force-refresh-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
