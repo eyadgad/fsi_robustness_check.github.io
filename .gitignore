@@ -1,3 +1,9 @@
 generated_fsi_versions.pkl
 .DS_Store
 Thumbs.db
+http_server_*.log
+assets/grid_search_*/augment_*.log
+assets/grid_search_*/augment_*.err.log
+assets/grid_search_*/msr_diagnostics_checkpoint.csv
+assets/grid_search_*/vixc_granger_checkpoint.csv
+assets/grid_search_*/pre_*_backup_*/
