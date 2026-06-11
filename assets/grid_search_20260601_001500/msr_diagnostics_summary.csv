@@ -1,0 +1,4 @@
+benchmark,n,markov_converged_count,markov_finite_bse_count,fsi_beta_high_positive_count,fsi_beta_high_sig_5pct_count,fsi_beta_amplification_count,fsi_msr_conditions_pass_count
+epu,7680,7680,7680,3113,329,3181,284
+cfsi,7680,7680,7680,7427,1823,6952,1762
+vixc,7680,7679,7679,7675,6343,7663,6342
