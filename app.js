@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260611-msr-granger-ranking-1";
+const DATA_VERSION = "final-20260611-expanded-granger-lags-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -119,9 +119,6 @@ const numberColumns = new Set([
   "epu_cfsi_regime_concordance",
   "epu_vixc_regime_concordance",
   "cfsi_vixc_regime_concordance",
-  "gc_fsi_vixc_lag1",
-  "gc_fsi_vixc_lag2",
-  "gc_fsi_vixc_lag3",
   "epu_msr_score",
   "cfsi_msr_score",
   "vixc_msr_score",
@@ -136,6 +133,16 @@ const numberColumns = new Set([
   "msr_granger_score",
   "msr_granger_rank",
 ]);
+
+["fsi_epu", "epu_fsi", "fsi_cfsi", "cfsi_fsi"].forEach((prefix) => {
+  for (let lag = 1; lag <= 12; lag += 1) {
+    numberColumns.add(`gc_${prefix}_lag${lag}`);
+  }
+});
+
+for (let lag = 1; lag <= 30; lag += 1) {
+  numberColumns.add(`gc_fsi_vixc_lag${lag}`);
+}
 
 ["epu", "cfsi", "vixc"].forEach((prefix) => {
   [
@@ -709,6 +716,12 @@ function renderReports() {
       file: "validation_results_by_benchmark.csv",
       rows: state.benchmark.length,
       description: "Long table with one row per FSI version and benchmark index.",
+    },
+    {
+      title: "Expanded Granger P-values",
+      file: "expanded_granger_added.csv",
+      rows: state.ranked.length,
+      description: "FSI-to-benchmark Granger p-values using 12 monthly lags and 30 daily VIXC lags.",
     },
     {
       title: "FSI Manifest",
