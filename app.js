@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260611-expanded-granger-lags-1";
+const DATA_VERSION = "final-20260611-exact-sentiment-filter-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -253,6 +253,11 @@ function uniqueSentimentModels(rows) {
   return preferred.filter((value) => found.has(value));
 }
 
+function sameSentimentSet(rowModels, selectedModels) {
+  if (rowModels.length !== selectedModels.length) return false;
+  return selectedModels.every((model) => rowModels.includes(model));
+}
+
 function variantKey(row) {
   const method = String(row.filtering_type || "").trim();
   const mValue = String(row.min_matches || "").trim();
@@ -454,7 +459,7 @@ function matchesFilters(row) {
 
   if (state.filters.sentimentModels.length) {
     const rowModels = sentimentParts(row);
-    if (!state.filters.sentimentModels.every((model) => rowModels.includes(model))) return false;
+    if (!sameSentimentSet(rowModels, state.filters.sentimentModels)) return false;
   }
 
   return true;
