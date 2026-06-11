@@ -148,7 +148,7 @@ main {
 
 .compare-row {
   display: grid;
-  grid-template-columns: minmax(240px, 380px) auto auto minmax(220px, 1fr);
+  grid-template-columns: minmax(170px, 220px) minmax(240px, 380px) auto auto minmax(220px, 1fr);
   gap: 10px;
   align-items: end;
 }
@@ -162,6 +162,7 @@ main {
 
 .filter-search,
 .compare-input,
+.rank-mode-input,
 .filter-group legend {
   display: grid;
   gap: 5px;
@@ -171,7 +172,8 @@ main {
 }
 
 input[type="search"],
-input[type="text"] {
+input[type="text"],
+select {
   width: 100%;
   min-height: 38px;
   padding: 8px 10px;
@@ -183,6 +185,7 @@ input[type="text"] {
 }
 
 input:focus,
+select:focus,
 button:focus {
   outline: 3px solid rgba(15, 118, 110, 0.18);
   outline-offset: 1px;
@@ -303,7 +306,7 @@ table {
 }
 
 .wide-table {
-  min-width: 1680px;
+  min-width: 2320px;
 }
 
 th,
@@ -382,6 +385,30 @@ code,
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
+}
+
+.bool-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.bool-yes {
+  color: #067647;
+  background: #e7f6ee;
+  border: 1px solid #abdbc0;
+}
+
+.bool-no {
+  color: #b42318;
+  background: #fff0ed;
+  border: 1px solid #f4b6ad;
 }
 
 .report-grid {

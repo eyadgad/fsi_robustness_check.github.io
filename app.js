@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260601-force-refresh-1";
+const DATA_VERSION = "final-20260611-msr-granger-ranking-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -8,12 +8,25 @@ const FILES = {
   manifest: dataFile("generated_fsi_versions_manifest.csv"),
 };
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const RANKING_MODES = {
+  msr_granger: {
+    label: "MSR+Granger rank",
+    rankColumn: "msr_granger_rank",
+    scoreColumn: "msr_granger_score",
+  },
+  correlation: {
+    label: "Correlation rank",
+    rankColumn: "rank",
+    scoreColumn: "rank_score",
+  },
+};
 
 const state = {
   ranked: [],
   benchmark: [],
   manifest: [],
   view: "ranked",
+  rankingMode: "msr_granger",
   compare: {
     rankedRow: null,
     benchmarkRowsByIndex: new Map(),
@@ -46,6 +59,7 @@ const elements = {
   compareButton: document.querySelector("#compareButton"),
   clearCompare: document.querySelector("#clearCompare"),
   compareStatus: document.querySelector("#compareStatus"),
+  rankingModeSelect: document.querySelector("#rankingModeSelect"),
   searchInput: document.querySelector("#searchInput"),
   fromYearFilter: document.querySelector("#fromYearFilter"),
   toYearFilter: document.querySelector("#toYearFilter"),
@@ -105,7 +119,45 @@ const numberColumns = new Set([
   "epu_cfsi_regime_concordance",
   "epu_vixc_regime_concordance",
   "cfsi_vixc_regime_concordance",
+  "gc_fsi_vixc_lag1",
+  "gc_fsi_vixc_lag2",
+  "gc_fsi_vixc_lag3",
+  "epu_msr_score",
+  "cfsi_msr_score",
+  "vixc_msr_score",
+  "epu_granger_sig_lags",
+  "cfsi_granger_sig_lags",
+  "vixc_granger_sig_lags",
+  "epu_granger_score",
+  "cfsi_granger_score",
+  "vixc_granger_score",
+  "msr_component_score",
+  "granger_component_score",
+  "msr_granger_score",
+  "msr_granger_rank",
 ]);
+
+["epu", "cfsi", "vixc"].forEach((prefix) => {
+  [
+    "low_regime_idx",
+    "fsi_beta_low",
+    "fsi_beta_high",
+    "fsi_beta_low_se",
+    "fsi_beta_high_se",
+    "fsi_beta_low_p",
+    "fsi_beta_high_p",
+  ].forEach((suffix) => numberColumns.add(`${prefix}_${suffix}`));
+});
+
+[
+  "low_regime_idx",
+  "fsi_beta_low",
+  "fsi_beta_high",
+  "fsi_beta_low_se",
+  "fsi_beta_high_se",
+  "fsi_beta_low_p",
+  "fsi_beta_high_p",
+].forEach((column) => numberColumns.add(column));
 
 function parseCsv(text) {
   const rows = [];
@@ -295,6 +347,21 @@ function formatPercent(value, digits = 1) {
   return `${(Number(value) * 100).toFixed(digits)}%`;
 }
 
+function boolValue(value) {
+  if (value === "" || value == null) return null;
+  if (value === true || value === false) return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return null;
+}
+
+function formatBool(value) {
+  const parsed = boolValue(value);
+  if (parsed == null) return "-";
+  return `<span class="bool-pill ${parsed ? "bool-yes" : "bool-no"}">${parsed ? "Yes" : "No"}</span>`;
+}
+
 function formatRegimeMeans(value) {
   const parts = String(value || "")
     .split(";")
@@ -387,7 +454,7 @@ function matchesFilters(row) {
 }
 
 function filteredRankedRows() {
-  return state.ranked.filter((row) => matchesFilters(row));
+  return sortedRankedRows().filter((row) => matchesFilters(row));
 }
 
 function benchmarkSortValue(row) {
@@ -432,7 +499,7 @@ function findCompareRow(value) {
   if (byId) return byId;
 
   if (/^\d+$/.test(term)) {
-    return state.ranked.find((row) => String(row.rank) === String(Number(term))) || null;
+    return state.ranked.find((row) => String(activeRank(row)) === String(Number(term))) || null;
   }
 
   return null;
@@ -444,7 +511,7 @@ function setCompareRow(row) {
   state.compare.benchmarkRowsByIndex = new Map(
     benchmarkRows.map((benchmarkRow) => [benchmarkRow.benchmark_index, benchmarkRow]),
   );
-  elements.compareStatus.textContent = `Comparing to rank ${row.rank}: ${row.fsi_id}`;
+  elements.compareStatus.textContent = `Comparing to ${activeRankingMode().label} ${activeRank(row)}: ${row.fsi_id}`;
   elements.compareStatus.classList.remove("error");
 }
 
@@ -460,17 +527,44 @@ function compareBenchmarkRow(row) {
   return state.compare.benchmarkRowsByIndex.get(row.benchmark_index) || null;
 }
 
+function activeRankingMode() {
+  return RANKING_MODES[state.rankingMode] || RANKING_MODES.msr_granger;
+}
+
+function activeRank(row) {
+  const value = row?.[activeRankingMode().rankColumn];
+  return value === "" || value == null ? row?.rank : value;
+}
+
+function activeScore(row) {
+  const value = row?.[activeRankingMode().scoreColumn];
+  return value === "" || value == null ? row?.rank_score : value;
+}
+
+function sortedRankedRows() {
+  const rankColumn = activeRankingMode().rankColumn;
+  return [...state.ranked].sort((a, b) => {
+    const aRank = numericValue(a[rankColumn]);
+    const bRank = numericValue(b[rankColumn]);
+    if (aRank == null && bRank == null) return 0;
+    if (aRank == null) return 1;
+    if (bRank == null) return -1;
+    return aRank - bRank;
+  });
+}
+
 function renderSummary() {
-  const best = state.ranked[0] || {};
+  const best = sortedRankedRows()[0] || {};
   elements.summaryFsi.textContent = formatInteger(state.manifest.length || state.ranked.length);
   elements.summaryBenchmarks.textContent = formatInteger(state.benchmark.length);
-  elements.summaryScore.textContent = formatNumber(best.rank_score);
+  elements.summaryScore.textContent = formatNumber(activeScore(best));
   elements.summaryBestId.textContent = best.fsi_id || "-";
 }
 
 function renderRankedTable() {
   const rows = filteredRankedRows();
-  elements.rankedCount.textContent = `${rows.length.toLocaleString()} matching FSI versions`;
+  elements.rankedCount.textContent =
+    `${rows.length.toLocaleString()} matching FSI versions, ranked by ${activeRankingMode().label}`;
   const visible = rows.slice(0, 250);
 
   if (!visible.length) {
@@ -481,9 +575,9 @@ function renderRankedTable() {
   elements.rankedTable.innerHTML = visible
     .map((row) => `
       <tr>
-        <td>${formatInteger(row.rank)}</td>
+        <td>${formatInteger(activeRank(row))}</td>
         <td><span class="mono">${escapeHtml(row.fsi_id)}</span></td>
-        <td>${compareValue(row.rank_score, state.compare.rankedRow?.rank_score)}</td>
+        <td>${compareValue(activeScore(row), activeScore(state.compare.rankedRow))}</td>
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(methodValue(row))}</span></td>
         <td>${escapeHtml(mValue(row))}</td>
@@ -519,7 +613,7 @@ function renderBenchmarkTable() {
           return `
           <tr class="${index === 0 ? "benchmark-group-start" : ""}">
             ${index === 0 ? `
-              <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(group.rankedRow.rank)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(activeRank(group.rankedRow))}</td>
               <td rowspan="${rowspan}" class="rowspan-cell"><span class="mono">${escapeHtml(group.rankedRow.fsi_id)}</span></td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.sentiment_set)}</td>
               <td rowspan="${rowspan}" class="rowspan-cell"><span class="pill">${escapeHtml(methodValue(group.rankedRow))}</span></td>
@@ -549,7 +643,7 @@ function renderMsrTable() {
   const visible = groups.slice(0, 120);
 
   if (!visible.length) {
-    elements.msrTable.innerHTML = `<tr><td class="empty" colspan="17">No MSR rows match the current filters.</td></tr>`;
+    elements.msrTable.innerHTML = `<tr><td class="empty" colspan="25">No MSR rows match the current filters.</td></tr>`;
     return;
   }
 
@@ -562,7 +656,7 @@ function renderMsrTable() {
           return `
           <tr class="${index === 0 ? "benchmark-group-start" : ""}">
             ${index === 0 ? `
-              <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(group.rankedRow.rank)}</td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(activeRank(group.rankedRow))}</td>
               <td rowspan="${rowspan}" class="rowspan-cell"><span class="mono">${escapeHtml(group.rankedRow.fsi_id)}</span></td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.sentiment_set)}</td>
               <td rowspan="${rowspan}" class="rowspan-cell"><span class="pill">${escapeHtml(methodValue(group.rankedRow))}</span></td>
@@ -580,6 +674,14 @@ function renderMsrTable() {
             <td>${compareValue(row.markov_bic, baseBenchmarkRow?.markov_bic, 2)}</td>
             <td>${comparePercent(row.high_regime_frac, baseBenchmarkRow?.high_regime_frac)}</td>
             <td>${formatRegimeMeansDiff(row.regime_means, baseBenchmarkRow?.regime_means)}</td>
+            <td>${formatBool(row.markov_converged)}</td>
+            <td>${formatBool(row.markov_finite_bse)}</td>
+            <td>${compareValue(row.fsi_beta_low, baseBenchmarkRow?.fsi_beta_low, 4)}</td>
+            <td>${compareValue(row.fsi_beta_high, baseBenchmarkRow?.fsi_beta_high, 4)}</td>
+            <td>${formatNumber(row.fsi_beta_high_p, 4)}</td>
+            <td>${formatBool(row.fsi_beta_high_positive)}</td>
+            <td>${formatBool(row.fsi_beta_amplification)}</td>
+            <td>${formatBool(row.fsi_msr_conditions_pass)}</td>
           </tr>
         `;
         })
@@ -713,6 +815,13 @@ function wireEvents() {
       syncFiltersFromInputs();
       renderCurrentView();
     }
+  });
+
+  elements.rankingModeSelect.addEventListener("change", () => {
+    state.rankingMode = elements.rankingModeSelect.value;
+    clearCompareState();
+    renderSummary();
+    renderCurrentView();
   });
 
   elements.resetFilters.addEventListener("click", resetFilters);

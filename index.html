@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FSI Robustness Check</title>
-    <link rel="stylesheet" href="styles.css?v=compare-mode">
+    <link rel="stylesheet" href="styles.css?v=msr-granger-ranking">
   </head>
   <body>
     <header class="app-header">
@@ -44,9 +44,16 @@
 
       <section class="compare-panel" aria-label="Compare FSI">
         <div class="compare-row">
+          <label class="rank-mode-input">
+            Rank by
+            <select id="rankingModeSelect">
+              <option value="msr_granger" selected>MSR+Granger rank</option>
+              <option value="correlation">Correlation rank</option>
+            </select>
+          </label>
           <label class="compare-input">
-            Compare to rank or FSI ID (current FSI at 314)
-            <input id="compareInput" type="text" placeholder="1 or fsi_2a9d11949be8">
+            Compare to selected rank or FSI ID
+            <input id="compareInput" type="text" placeholder="1 or fsi_6dbfd07e558f">
           </label>
           <button id="compareButton" class="primary-button">Compare</button>
           <button id="clearCompare" class="secondary-button">Clear</button>
@@ -187,6 +194,14 @@
                 <th>BIC</th>
                 <th>High regime</th>
                 <th>Regime means</th>
+                <th>Converged</th>
+                <th>Finite SE</th>
+                <th>Beta low</th>
+                <th>Beta high</th>
+                <th>p high</th>
+                <th>High > 0</th>
+                <th>Amplifies</th>
+                <th>Pass</th>
               </tr>
             </thead>
             <tbody id="msrTable"></tbody>
@@ -198,7 +213,7 @@
         <div class="section-title">
           <div>
             <h2>Generated Reports</h2>
-            <p>Source folder: <code>assets/grid_search_20260522_125148</code></p>
+            <p>Source folder: <code>assets/grid_search_20260601_001500</code></p>
           </div>
         </div>
         <div class="report-grid" id="reportGrid"></div>
