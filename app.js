@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260617-13440-grid-1";
+const DATA_VERSION = "final-20260617-end-range-year-groups-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -311,16 +311,33 @@ function uniqueYears(rows, key) {
   return [...new Set(values)].sort((a, b) => Number(a) - Number(b));
 }
 
-function uniqueEndPeriods(rows) {
+function groupedEndPeriods(rows) {
   const byDate = new Map();
   rows.forEach((row) => {
     const raw = String(row.until_date || "").slice(0, 10);
     const label = toYear(row);
-    if (raw && label) byDate.set(raw, label);
+    if (!raw || !label) return;
+    const [year, month] = raw.split("-");
+    const monthIndex = Number(month);
+    byDate.set(raw, {
+      year,
+      monthIndex,
+      monthLabel: MONTH_LABELS[monthIndex - 1] || month,
+      label,
+    });
   });
-  return [...byDate.entries()]
+
+  const byYear = new Map();
+  [...byDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([, label]) => label);
+    .forEach(([, period]) => {
+      if (!byYear.has(period.year)) byYear.set(period.year, []);
+      byYear.get(period.year).push(period);
+    });
+
+  return [...byYear.entries()]
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([year, periods]) => ({ year, periods }));
 }
 
 function renderCheckboxGroup(container, values, name) {
@@ -339,9 +356,83 @@ function renderCheckboxGroup(container, values, name) {
   });
 }
 
+function renderEndPeriodGroup(container, groups) {
+  if (!container) return;
+  container.innerHTML = "";
+  groups.forEach((group) => {
+    const groupEl = document.createElement("div");
+    groupEl.className = "end-year-group";
+    const yearId = `to-year-${group.year}`;
+    const monthsHtml = group.periods
+      .map((period) => {
+        const monthId = `to-period-${period.label.replace(/[^a-z0-9]+/gi, "-")}`;
+        return `
+          <label class="checkbox-option end-month-option" for="${escapeHtml(monthId)}">
+            <input
+              id="${escapeHtml(monthId)}"
+              type="checkbox"
+              name="to-period"
+              value="${escapeHtml(period.label)}"
+              data-role="end-month"
+              data-year="${escapeHtml(group.year)}"
+            >
+            <span>${escapeHtml(period.monthLabel)}</span>
+          </label>
+        `;
+      })
+      .join("");
+
+    groupEl.innerHTML = `
+      <label class="checkbox-option end-year-option" for="${escapeHtml(yearId)}">
+        <input
+          id="${escapeHtml(yearId)}"
+          type="checkbox"
+          name="to-year"
+          value="${escapeHtml(group.year)}"
+          data-role="end-year"
+          data-year="${escapeHtml(group.year)}"
+        >
+        <span>${escapeHtml(group.year)}</span>
+      </label>
+      <div class="end-month-list">${monthsHtml}</div>
+    `;
+    container.appendChild(groupEl);
+  });
+}
+
 function selectedCheckboxValues(container) {
   if (!container) return [];
   return [...container.querySelectorAll('input[type="checkbox"]:checked')].map((input) => input.value);
+}
+
+function selectedEndPeriodValues(container) {
+  if (!container) return [];
+  return [...container.querySelectorAll('input[data-role="end-month"]:checked')].map((input) => input.value);
+}
+
+function syncEndYearCheckboxes() {
+  if (!elements.toYearFilter) return;
+  elements.toYearFilter.querySelectorAll('input[data-role="end-year"]').forEach((yearInput) => {
+    const months = [
+      ...elements.toYearFilter.querySelectorAll('input[data-role="end-month"]'),
+    ].filter((input) => input.dataset.year === yearInput.dataset.year);
+    const checkedCount = months.filter((input) => input.checked).length;
+    yearInput.checked = months.length > 0 && checkedCount === months.length;
+    yearInput.indeterminate = checkedCount > 0 && checkedCount < months.length;
+  });
+}
+
+function handleEndPeriodChange(target) {
+  if (!target.matches('input[data-role="end-year"], input[data-role="end-month"]')) return;
+
+  if (target.dataset.role === "end-year") {
+    const months = [...elements.toYearFilter.querySelectorAll('input[data-role="end-month"]')]
+      .filter((input) => input.dataset.year === target.dataset.year);
+    months.forEach((monthInput) => {
+      monthInput.checked = target.checked;
+    });
+  }
+  syncEndYearCheckboxes();
 }
 
 function formatNumber(value, digits = 4) {
@@ -757,7 +848,7 @@ function renderCurrentView() {
 function populateFilters() {
   const combined = [...state.ranked, ...state.benchmark];
   renderCheckboxGroup(elements.fromYearFilter, uniqueYears(combined, "since_date"), "from-year");
-  renderCheckboxGroup(elements.toYearFilter, uniqueEndPeriods(combined), "to-period");
+  renderEndPeriodGroup(elements.toYearFilter, groupedEndPeriods(combined));
   renderCheckboxGroup(elements.windowFilter, uniqueSorted(combined, "window_size", true), "window-size");
   renderCheckboxGroup(elements.sentimentFilter, uniqueSentimentModels(combined), "sentiment-model");
   renderCheckboxGroup(elements.methodFilter, uniqueMethods(combined), "method");
@@ -767,7 +858,7 @@ function populateFilters() {
 function syncFiltersFromInputs() {
   state.filters.search = elements.searchInput.value.trim();
   state.filters.fromYears = selectedCheckboxValues(elements.fromYearFilter);
-  state.filters.toYears = selectedCheckboxValues(elements.toYearFilter);
+  state.filters.toYears = selectedEndPeriodValues(elements.toYearFilter);
   state.filters.windowSizes = selectedCheckboxValues(elements.windowFilter);
   state.filters.sentimentModels = selectedCheckboxValues(elements.sentimentFilter);
   state.filters.methods = selectedCheckboxValues(elements.methodFilter);
@@ -778,6 +869,7 @@ function resetFilters() {
   elements.searchInput.value = "";
   document.querySelectorAll('.filter-panel input[type="checkbox"]').forEach((checkbox) => {
     checkbox.checked = false;
+    checkbox.indeterminate = false;
   });
   syncFiltersFromInputs();
   renderCurrentView();
@@ -830,6 +922,7 @@ function wireEvents() {
 
   document.querySelector(".filter-panel").addEventListener("change", (event) => {
     if (event.target.matches('input[type="checkbox"]')) {
+      handleEndPeriodChange(event.target);
       syncFiltersFromInputs();
       renderCurrentView();
     }
