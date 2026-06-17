@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260611-exact-sentiment-filter-1";
+const DATA_VERSION = "final-20260617-13440-grid-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
