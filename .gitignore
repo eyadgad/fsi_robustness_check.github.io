@@ -7,4 +7,5 @@ assets/grid_search_*/augment_*.err.log
 assets/grid_search_*/msr_diagnostics_checkpoint.csv
 assets/grid_search_*/vixc_granger_checkpoint.csv
 assets/grid_search_*/expanded_granger_checkpoint.csv
+assets/grid_search_*/validation_rules_inputs_checkpoint.csv
 assets/grid_search_*/pre_*_backup_*/
