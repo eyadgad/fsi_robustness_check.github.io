@@ -245,6 +245,32 @@ button:focus {
   accent-color: var(--accent);
 }
 
+.end-year-group {
+  display: grid;
+  gap: 5px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+}
+
+.end-year-group:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.end-year-option {
+  font-weight: 800;
+}
+
+.end-month-list {
+  display: grid;
+  gap: 5px;
+  padding-left: 24px;
+}
+
+.end-month-option {
+  color: var(--muted);
+}
+
 .primary-button,
 .secondary-button {
   min-height: 38px;
