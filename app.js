@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260617-end-range-year-groups-1";
+const DATA_VERSION = "final-20260617-validation-rules-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -9,6 +9,11 @@ const FILES = {
 };
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const RANKING_MODES = {
+  validation_rules: {
+    label: "Validation rules rank",
+    rankColumn: "rules_rank",
+    scoreColumn: "rules_total_score",
+  },
   msr_granger: {
     label: "MSR+Granger rank",
     rankColumn: "msr_granger_rank",
@@ -26,7 +31,7 @@ const state = {
   benchmark: [],
   manifest: [],
   view: "ranked",
-  rankingMode: "msr_granger",
+  rankingMode: "validation_rules",
   compare: {
     rankedRow: null,
     benchmarkRowsByIndex: new Map(),
@@ -132,17 +137,49 @@ const numberColumns = new Set([
   "granger_component_score",
   "msr_granger_score",
   "msr_granger_rank",
+  "rules_rank",
+  "rules_accepted_rank",
+  "rules_total_score",
+  "rules_minimum_pass_count",
+  "rules_supporting_pass_count",
+  "rules_stationarity_score",
+  "rules_correlation_score",
+  "rules_lead_lag_score",
+  "rules_granger_score",
+  "rules_msr_score",
+  "rules_robustness_score",
+  "rules_simplicity_quality",
+  "rule_S_FSI_EPU",
+  "rule_S_EPU_FSI",
+  "rule_S_FSI_CFSI",
+  "rule_S_CFSI_FSI",
+  "rule_S_FSI_VIXC",
+  "rule_S_VIXC_FSI",
 ]);
 
 ["fsi_epu", "epu_fsi", "fsi_cfsi", "cfsi_fsi"].forEach((prefix) => {
   for (let lag = 1; lag <= 12; lag += 1) {
     numberColumns.add(`gc_${prefix}_lag${lag}`);
+    numberColumns.add(`gc_${prefix}_lag${lag}_f_p`);
   }
 });
 
 for (let lag = 1; lag <= 30; lag += 1) {
   numberColumns.add(`gc_fsi_vixc_lag${lag}`);
+  numberColumns.add(`gc_fsi_vixc_lag${lag}_f_p`);
+  numberColumns.add(`gc_vixc_fsi_lag${lag}`);
+  numberColumns.add(`gc_vixc_fsi_lag${lag}_f_p`);
 }
+
+["epu", "cfsi"].forEach((prefix) => {
+  [1, 2, 3].forEach((lag) => {
+    ["r", "p", "n"].forEach((suffix) => numberColumns.add(`${prefix}_lead_lag${lag}_${suffix}`));
+  });
+});
+
+[1, 5, 10].forEach((lag) => {
+  ["r", "p", "n"].forEach((suffix) => numberColumns.add(`vixc_lead_lag${lag}_${suffix}`));
+});
 
 ["epu", "cfsi", "vixc"].forEach((prefix) => {
   [
@@ -153,6 +190,12 @@ for (let lag = 1; lag <= 30; lag += 1) {
     "fsi_beta_high_se",
     "fsi_beta_low_p",
     "fsi_beta_high_p",
+    "low_variance",
+    "high_variance",
+    "p_low_low",
+    "p_low_high",
+    "p_high_low",
+    "p_high_high",
   ].forEach((suffix) => numberColumns.add(`${prefix}_${suffix}`));
 });
 
@@ -164,6 +207,12 @@ for (let lag = 1; lag <= 30; lag += 1) {
   "fsi_beta_high_se",
   "fsi_beta_low_p",
   "fsi_beta_high_p",
+  "low_variance",
+  "high_variance",
+  "p_low_low",
+  "p_low_high",
+  "p_high_low",
+  "p_high_high",
 ].forEach((column) => numberColumns.add(column));
 
 function parseCsv(text) {
@@ -631,7 +680,7 @@ function compareBenchmarkRow(row) {
 }
 
 function activeRankingMode() {
-  return RANKING_MODES[state.rankingMode] || RANKING_MODES.msr_granger;
+  return RANKING_MODES[state.rankingMode] || RANKING_MODES.validation_rules;
 }
 
 function activeRank(row) {
@@ -818,6 +867,24 @@ function renderReports() {
       file: "expanded_granger_added.csv",
       rows: state.ranked.length,
       description: "FSI-to-benchmark Granger p-values using 12 monthly lags and 30 daily VIXC lags.",
+    },
+    {
+      title: "Validation Rules Summary",
+      file: "validation_rules_summary.csv",
+      rows: 1,
+      description: "Acceptance count, score range, and top configuration under the validation-rules scoring system.",
+    },
+    {
+      title: "Validation Rule Pass Counts",
+      file: "validation_rules_pass_counts.csv",
+      rows: 30,
+      description: "Pass counts for each minimum and supporting validation rule.",
+    },
+    {
+      title: "Validation Rule Inputs",
+      file: "validation_rules_inputs_added.csv",
+      rows: state.ranked.length,
+      description: "Computed fixed lead-lag, Granger F-test, and MSR variance/persistence inputs for rule scoring.",
     },
     {
       title: "FSI Manifest",
