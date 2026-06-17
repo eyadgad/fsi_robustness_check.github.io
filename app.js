@@ -877,8 +877,8 @@ function renderReports() {
     {
       title: "Validation Rule Pass Counts",
       file: "validation_rules_pass_counts.csv",
-      rows: 30,
-      description: "Pass counts for each minimum and supporting validation rule.",
+      rows: 24,
+      description: "Pass counts for each boolean minimum, supporting, and diagnostic validation rule.",
     },
     {
       title: "Validation Rule Inputs",
