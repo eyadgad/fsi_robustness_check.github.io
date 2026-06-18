@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260618-fsi-detail-modal-1";
+const DATA_VERSION = "final-20260618-plot-axis-grid-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -736,17 +736,63 @@ function chartPath(points, key, xScale, yScale) {
   return commands.join(" ");
 }
 
+function niceTickStep(rawStep) {
+  if (!Number.isFinite(rawStep) || rawStep <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(rawStep));
+  const scaled = rawStep / power;
+  if (scaled <= 1) return power;
+  if (scaled <= 2) return 2 * power;
+  if (scaled <= 5) return 5 * power;
+  return 10 * power;
+}
+
+function axisTicks(min, max, count = 6) {
+  const step = niceTickStep((max - min) / Math.max(count - 1, 1));
+  const start = Math.ceil(min / step) * step;
+  const ticks = [];
+  for (let value = start; value <= max + step * 0.5; value += step) {
+    ticks.push(Number(value.toFixed(10)));
+  }
+  if (!ticks.length) return [min, max];
+  return ticks;
+}
+
+function xTickIndices(length, count = 5) {
+  if (length <= 0) return [];
+  return [...new Set(
+    Array.from({ length: Math.min(count, length) }, (_, index) =>
+      Math.round((index / Math.max(Math.min(count, length) - 1, 1)) * (length - 1)),
+    ),
+  )];
+}
+
+function formatAxisTick(value) {
+  const abs = Math.abs(value);
+  if (abs >= 10) return value.toFixed(0);
+  if (abs >= 1) return value.toFixed(1);
+  return value.toFixed(2);
+}
+
+function formatDateTick(value) {
+  const text = String(value || "");
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text.slice(0, 7);
+  return text;
+}
+
 function renderLineChart(title, points, meta = {}) {
   if (!points.length) {
     return `<div class="plot-error">No aligned plot data available.</div>`;
   }
 
-  const width = 720;
-  const height = 280;
-  const margin = { top: 22, right: 18, bottom: 34, left: 42 };
+  const width = 760;
+  const height = 330;
+  const margin = { top: 30, right: 22, bottom: 60, left: 62 };
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = height - margin.top - margin.bottom;
   const values = points.flatMap((point) => [point.fsi, point.benchmark]).filter((value) => value != null);
+  if (!values.length) {
+    return `<div class="plot-error">No numeric plot values available.</div>`;
+  }
   let min = Math.min(...values);
   let max = Math.max(...values);
   if (min === max) {
@@ -763,26 +809,43 @@ function renderLineChart(title, points, meta = {}) {
   const zeroY = min <= 0 && max >= 0 ? yScale(0) : null;
   const fsiPath = chartPath(points, "fsi", xScale, yScale);
   const benchmarkPath = chartPath(points, "benchmark", xScale, yScale);
+  const yTicks = axisTicks(min, max, 6);
+  const xTicks = xTickIndices(points.length, 5);
 
   return `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(title)}">
       <rect x="0" y="0" width="${width}" height="${height}" fill="#fff"></rect>
-      <text x="${margin.left}" y="15" fill="#172033" font-size="15" font-weight="800">${escapeHtml(title)}</text>
-      <line x1="${margin.left}" y1="${margin.top + innerHeight}" x2="${margin.left + innerWidth}" y2="${margin.top + innerHeight}" stroke="#c4cfdd"></line>
-      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + innerHeight}" stroke="#c4cfdd"></line>
-      ${zeroY == null ? "" : `<line x1="${margin.left}" y1="${zeroY.toFixed(1)}" x2="${margin.left + innerWidth}" y2="${zeroY.toFixed(1)}" stroke="#d9e0ea" stroke-dasharray="4 4"></line>`}
-      <text x="${margin.left}" y="${height - 9}" fill="#667085" font-size="11">${escapeHtml(firstDate)}</text>
-      <text x="${margin.left + innerWidth}" y="${height - 9}" fill="#667085" font-size="11" text-anchor="end">${escapeHtml(lastDate)}</text>
-      <text x="${margin.left - 7}" y="${yScale(max).toFixed(1)}" fill="#667085" font-size="10" text-anchor="end">${max.toFixed(1)}</text>
-      <text x="${margin.left - 7}" y="${yScale(min).toFixed(1)}" fill="#667085" font-size="10" text-anchor="end">${min.toFixed(1)}</text>
+      <text x="${margin.left}" y="18" fill="#172033" font-size="15" font-weight="800">${escapeHtml(title)}</text>
+      ${yTicks.map((tick) => {
+        const y = yScale(tick);
+        return `
+          <line x1="${margin.left}" y1="${y.toFixed(1)}" x2="${margin.left + innerWidth}" y2="${y.toFixed(1)}" stroke="#eef3f8"></line>
+          <line x1="${margin.left - 4}" y1="${y.toFixed(1)}" x2="${margin.left}" y2="${y.toFixed(1)}" stroke="#98a2b3"></line>
+          <text x="${margin.left - 8}" y="${(y + 3.5).toFixed(1)}" fill="#667085" font-size="10" text-anchor="end">${formatAxisTick(tick)}</text>
+        `;
+      }).join("")}
+      ${xTicks.map((index) => {
+        const x = xScale(index);
+        const anchor = index === 0 ? "start" : index === points.length - 1 ? "end" : "middle";
+        return `
+          <line x1="${x.toFixed(1)}" y1="${margin.top}" x2="${x.toFixed(1)}" y2="${margin.top + innerHeight}" stroke="#f3f6fa"></line>
+          <line x1="${x.toFixed(1)}" y1="${margin.top + innerHeight}" x2="${x.toFixed(1)}" y2="${margin.top + innerHeight + 4}" stroke="#98a2b3"></line>
+          <text x="${x.toFixed(1)}" y="${margin.top + innerHeight + 18}" fill="#667085" font-size="10" text-anchor="${anchor}">${escapeHtml(formatDateTick(points[index]?.date))}</text>
+        `;
+      }).join("")}
+      <line x1="${margin.left}" y1="${margin.top + innerHeight}" x2="${margin.left + innerWidth}" y2="${margin.top + innerHeight}" stroke="#98a2b3" stroke-width="1.2"></line>
+      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + innerHeight}" stroke="#98a2b3" stroke-width="1.2"></line>
+      ${zeroY == null ? "" : `<line x1="${margin.left}" y1="${zeroY.toFixed(1)}" x2="${margin.left + innerWidth}" y2="${zeroY.toFixed(1)}" stroke="#667085" stroke-dasharray="4 4"></line>`}
+      <text x="${margin.left + innerWidth / 2}" y="${height - 10}" fill="#344054" font-size="11" text-anchor="middle" font-weight="700">Date</text>
+      <text transform="translate(14 ${margin.top + innerHeight / 2}) rotate(-90)" fill="#344054" font-size="11" text-anchor="middle" font-weight="700">Standardized value</text>
       <path d="${benchmarkPath}" fill="none" stroke="#7c3aed" stroke-width="2.1"></path>
       <path d="${fsiPath}" fill="none" stroke="#0f766e" stroke-width="2.3"></path>
-      <g transform="translate(${margin.left}, ${height - 28})">
+      <g transform="translate(${margin.left}, ${height - 38})">
         <rect x="0" y="-8" width="10" height="3" fill="#0f766e"></rect>
         <text x="16" y="-3" fill="#344054" font-size="11">FSI</text>
         <rect x="58" y="-8" width="10" height="3" fill="#7c3aed"></rect>
         <text x="74" y="-3" fill="#344054" font-size="11">${escapeHtml(meta.benchmarkLabel || "Benchmark")}</text>
-        ${meta.sampleText ? `<text x="180" y="-3" fill="#667085" font-size="11">${escapeHtml(meta.sampleText)}</text>` : ""}
+        <text x="180" y="-3" fill="#667085" font-size="11">${escapeHtml(meta.sampleText || `${formatInteger(points.length)} aligned points`)}</text>
       </g>
     </svg>
   `;
