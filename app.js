@@ -1,11 +1,12 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260617-validation-rules-1";
+const DATA_VERSION = "final-20260618-fsi-detail-modal-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
   all: dataFile("grid_validation_results_all.csv"),
   benchmark: dataFile("validation_results_by_benchmark.csv"),
   manifest: dataFile("generated_fsi_versions_manifest.csv"),
+  plotCommon: dataFile("plot_series/common.json"),
 };
 const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const RANKING_MODES = {
@@ -36,6 +37,9 @@ const state = {
     rankedRow: null,
     benchmarkRowsByIndex: new Map(),
   },
+  plotCommon: null,
+  plotShards: new Map(),
+  modalFsiId: null,
   filters: {
     search: "",
     fromYears: [],
@@ -76,6 +80,11 @@ const elements = {
   downloadRanked: document.querySelector("#downloadRanked"),
   downloadBenchmarks: document.querySelector("#downloadBenchmarks"),
   downloadMsr: document.querySelector("#downloadMsr"),
+  modal: document.querySelector("#fsiModal"),
+  modalTitle: document.querySelector("#modalTitle"),
+  modalSubtitle: document.querySelector("#modalSubtitle"),
+  modalBody: document.querySelector("#modalBody"),
+  modalClose: document.querySelector("#modalClose"),
 };
 
 const numberColumns = new Set([
@@ -215,6 +224,57 @@ for (let lag = 1; lag <= 30; lag += 1) {
   "p_high_high",
 ].forEach((column) => numberColumns.add(column));
 
+const RULE_GROUPS = [
+  {
+    title: "Minimum Acceptance Rules",
+    rules: [
+      ["rule_A1_monthly_fsi_stationary", "A1. Monthly FSI stationarity", "ADF p < 0.10"],
+      ["rule_A2_daily_fsi_stationary", "A2. Daily FSI stationarity", "ADF p < 0.05"],
+      ["rule_A3_benchmark_stationary", "A3. Benchmark stationarity", "EPU, CFSI, and VIXC ADF p < 0.10"],
+      ["rule_B1_epu_corr_positive_significant", "B1. Positive significant EPU correlation", "Pearson r > 0 and p < 0.05"],
+      ["rule_B2_cfsi_corr_positive_significant", "B2. Positive significant CFSI correlation", "Pearson r > 0 and p < 0.05"],
+      ["rule_C1_fsi_leads_epu", "C1. FSI positively leads EPU", "Lags 1-3 positive, at least two p < 0.05"],
+      ["rule_C2_fsi_leads_cfsi", "C2. FSI positively leads CFSI", "Lags 1-3 positive, at least one p < 0.05"],
+      ["rule_D1_fsi_granger_causes_epu", "D1. FSI Granger-causes EPU", "At least two significant lags"],
+      ["rule_D2_no_stronger_epu_reverse_granger", "D2. EPU reverse causality control", "FSI->EPU significant lags > EPU->FSI"],
+      ["rule_E1_msr_epu_high_positive_significant", "E1. EPU MSR high-stress coefficient", "High beta > 0 and p < 0.05"],
+      ["rule_E2_msr_cfsi_high_positive_significant", "E2. CFSI MSR high-stress coefficient", "High beta > 0 and p < 0.05"],
+      ["rule_E3_msr_vixc_high_positive_significant", "E3. VIXC MSR high-stress coefficient", "High beta > 0 and p < 0.05"],
+      ["rule_E5_msr_beta_high_greater_than_low", "E5. MSR regime separation", "High beta > low beta for all benchmarks"],
+      ["rule_E6_msr_high_variance_greater_than_low", "E6. MSR variance separation", "High variance > low variance for all benchmarks"],
+      ["rule_E7_msr_low_persistence", "E7. Low-stress persistence", "P(low->low) > 0.90 for all benchmarks"],
+      ["rule_E8_msr_high_persistence", "E8. High-stress persistence", "P(high->high) > 0.85 for all benchmarks"],
+    ],
+  },
+  {
+    title: "Supporting Rules",
+    rules: [
+      ["rule_B3_vixc_daily_corr_positive_weak_significant", "B3. Positive daily VIXC correlation", "Pearson r > 0 and p < 0.10"],
+      ["rule_B4_spearman_no_contradiction", "B4. Spearman consistency", "Spearman does not strongly contradict Pearson"],
+      ["rule_C3_fsi_leads_vixc", "C3. FSI positively leads VIXC", "Daily lags 1, 5, and 10 positive"],
+      ["rule_D3_no_stronger_cfsi_reverse_granger", "D3. CFSI reverse causality control", "CFSI->FSI not stronger than FSI->CFSI"],
+      ["rule_D4_no_stronger_vixc_reverse_granger", "D4. VIXC reverse causality control", "VIXC->FSI not stronger than FSI->VIXC"],
+      ["rule_E4_low_stress_no_strong_contradiction", "E4. Low-stress MSR does not contradict", "Low beta does not strongly oppose high beta"],
+    ],
+  },
+  {
+    title: "Diagnostic Rules",
+    rules: [
+      ["rule_C3_strong_fsi_leads_vixc", "Strong C3. VIXC lead significance", "At least two VIXC lead-lag p-values < 0.10"],
+      ["rule_D2_strong_no_epu_reverse_granger", "Strong D2. No EPU reverse lags", "No significant EPU->FSI Granger lags"],
+    ],
+  },
+];
+
+const SCORE_FIELDS = [
+  ["rules_stationarity_score", "Stationarity"],
+  ["rules_correlation_score", "Correlation"],
+  ["rules_lead_lag_score", "Lead-lag"],
+  ["rules_granger_score", "Granger"],
+  ["rules_msr_score", "MSR"],
+  ["rules_robustness_score", "Robustness"],
+];
+
 function parseCsv(text) {
   const rows = [];
   let row = [];
@@ -282,6 +342,39 @@ async function loadCsv(url) {
     throw new Error(`Could not load ${url}`);
   }
   return parseCsv(await response.text());
+}
+
+async function loadJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Could not load ${url}`);
+  }
+  return response.json();
+}
+
+function plotShardUrl(fsiId) {
+  const shard = String(fsiId || "").slice(4, 6).toLowerCase();
+  return dataFile(`plot_series/shard_${shard}.json`);
+}
+
+async function loadPlotSeries(fsiId) {
+  if (!state.plotCommon) {
+    state.plotCommon = await loadJson(FILES.plotCommon);
+  }
+  const shard = String(fsiId || "").slice(4, 6).toLowerCase();
+  if (!state.plotShards.has(shard)) {
+    state.plotShards.set(shard, await loadJson(plotShardUrl(fsiId)));
+  }
+  const shardData = state.plotShards.get(shard);
+  const series = shardData?.series?.[fsiId];
+  if (!series) {
+    throw new Error(`Plot data not found for ${fsiId}`);
+  }
+  const common = state.plotCommon.ranges?.[series.range];
+  if (!common) {
+    throw new Error(`Common plot range not found for ${fsiId}`);
+  }
+  return { common, series };
 }
 
 function uniqueSorted(rows, key, numeric = false) {
@@ -574,6 +667,127 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function fsiButton(fsiId) {
+  return `
+    <button class="fsi-detail-button mono" type="button" data-fsi-id="${escapeHtml(fsiId)}">
+      ${escapeHtml(fsiId)}
+    </button>
+  `;
+}
+
+function ruleStatus(value) {
+  const parsed = boolValue(value);
+  if (parsed == null) return `<span class="bool-pill">-</span>`;
+  return `<span class="bool-pill ${parsed ? "bool-yes" : "bool-no"}">${parsed ? "Pass" : "No"}</span>`;
+}
+
+function renderScoreCards(row) {
+  return SCORE_FIELDS
+    .map(([field, label]) => `
+      <div class="score-card">
+        <span>${escapeHtml(label)}</span>
+        <strong>${formatNumber(row[field], 2)}</strong>
+      </div>
+    `)
+    .join("");
+}
+
+function renderRuleGroups(row) {
+  return RULE_GROUPS
+    .map((group) => `
+      <section class="rule-group">
+        <h3>${escapeHtml(group.title)}</h3>
+        <div class="rule-list">
+          ${group.rules.map(([field, label, note]) => `
+            <div class="rule-row">
+              <div>
+                <strong>${escapeHtml(label)}</strong>
+                <small>${escapeHtml(note)}</small>
+              </div>
+              ${ruleStatus(row[field])}
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    `)
+    .join("");
+}
+
+function seriesPairs(commonBench, fsiValues) {
+  const dates = commonBench?.dates || [];
+  const benchmark = commonBench?.benchmark || [];
+  return dates
+    .map((date, index) => ({
+      date,
+      fsi: numericValue(fsiValues?.[index]),
+      benchmark: numericValue(benchmark[index]),
+    }))
+    .filter((point) => point.fsi != null || point.benchmark != null);
+}
+
+function chartPath(points, key, xScale, yScale) {
+  const commands = [];
+  points.forEach((point, index) => {
+    const value = point[key];
+    if (value == null) return;
+    const command = `${commands.length ? "L" : "M"} ${xScale(index).toFixed(1)} ${yScale(value).toFixed(1)}`;
+    commands.push(command);
+  });
+  return commands.join(" ");
+}
+
+function renderLineChart(title, points, meta = {}) {
+  if (!points.length) {
+    return `<div class="plot-error">No aligned plot data available.</div>`;
+  }
+
+  const width = 720;
+  const height = 280;
+  const margin = { top: 22, right: 18, bottom: 34, left: 42 };
+  const innerWidth = width - margin.left - margin.right;
+  const innerHeight = height - margin.top - margin.bottom;
+  const values = points.flatMap((point) => [point.fsi, point.benchmark]).filter((value) => value != null);
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
+  const pad = Math.max((max - min) * 0.08, 0.2);
+  min -= pad;
+  max += pad;
+  const xScale = (index) => margin.left + (points.length === 1 ? 0 : (index / (points.length - 1)) * innerWidth);
+  const yScale = (value) => margin.top + ((max - value) / (max - min)) * innerHeight;
+  const firstDate = points[0]?.date || "";
+  const lastDate = points[points.length - 1]?.date || "";
+  const zeroY = min <= 0 && max >= 0 ? yScale(0) : null;
+  const fsiPath = chartPath(points, "fsi", xScale, yScale);
+  const benchmarkPath = chartPath(points, "benchmark", xScale, yScale);
+
+  return `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(title)}">
+      <rect x="0" y="0" width="${width}" height="${height}" fill="#fff"></rect>
+      <text x="${margin.left}" y="15" fill="#172033" font-size="15" font-weight="800">${escapeHtml(title)}</text>
+      <line x1="${margin.left}" y1="${margin.top + innerHeight}" x2="${margin.left + innerWidth}" y2="${margin.top + innerHeight}" stroke="#c4cfdd"></line>
+      <line x1="${margin.left}" y1="${margin.top}" x2="${margin.left}" y2="${margin.top + innerHeight}" stroke="#c4cfdd"></line>
+      ${zeroY == null ? "" : `<line x1="${margin.left}" y1="${zeroY.toFixed(1)}" x2="${margin.left + innerWidth}" y2="${zeroY.toFixed(1)}" stroke="#d9e0ea" stroke-dasharray="4 4"></line>`}
+      <text x="${margin.left}" y="${height - 9}" fill="#667085" font-size="11">${escapeHtml(firstDate)}</text>
+      <text x="${margin.left + innerWidth}" y="${height - 9}" fill="#667085" font-size="11" text-anchor="end">${escapeHtml(lastDate)}</text>
+      <text x="${margin.left - 7}" y="${yScale(max).toFixed(1)}" fill="#667085" font-size="10" text-anchor="end">${max.toFixed(1)}</text>
+      <text x="${margin.left - 7}" y="${yScale(min).toFixed(1)}" fill="#667085" font-size="10" text-anchor="end">${min.toFixed(1)}</text>
+      <path d="${benchmarkPath}" fill="none" stroke="#7c3aed" stroke-width="2.1"></path>
+      <path d="${fsiPath}" fill="none" stroke="#0f766e" stroke-width="2.3"></path>
+      <g transform="translate(${margin.left}, ${height - 28})">
+        <rect x="0" y="-8" width="10" height="3" fill="#0f766e"></rect>
+        <text x="16" y="-3" fill="#344054" font-size="11">FSI</text>
+        <rect x="58" y="-8" width="10" height="3" fill="#7c3aed"></rect>
+        <text x="74" y="-3" fill="#344054" font-size="11">${escapeHtml(meta.benchmarkLabel || "Benchmark")}</text>
+        ${meta.sampleText ? `<text x="180" y="-3" fill="#667085" font-size="11">${escapeHtml(meta.sampleText)}</text>` : ""}
+      </g>
+    </svg>
+  `;
+}
+
 function matchesFilters(row) {
   const search = state.filters.search.toLowerCase();
   if (search) {
@@ -679,6 +893,115 @@ function compareBenchmarkRow(row) {
   return state.compare.benchmarkRowsByIndex.get(row.benchmark_index) || null;
 }
 
+function rankedRowById(fsiId) {
+  return state.ranked.find((row) => row.fsi_id === fsiId) || null;
+}
+
+function modalBenchmarkRows(fsiId) {
+  return state.benchmark
+    .filter((row) => row.fsi_id === fsiId)
+    .sort((a, b) => benchmarkSortValue(a) - benchmarkSortValue(b));
+}
+
+function renderDetailCards(row) {
+  const cards = [
+    ["Rank", formatInteger(activeRank(row))],
+    ["Score", formatNumber(activeScore(row), 2)],
+    ["Accepted", formatBool(row.rules_accepted)],
+    ["Minimum rules", `${formatInteger(row.rules_minimum_pass_count)} / 16`],
+    ["Supporting rules", `${formatInteger(row.rules_supporting_pass_count)} / 6`],
+    ["Correlation rank", formatInteger(row.rank)],
+    ["MSR+Granger rank", formatInteger(row.msr_granger_rank)],
+    ["Sentiment", row.sentiment_set],
+    ["Method", methodValue(row)],
+    ["m", mValue(row)],
+    ["From", fromYear(row)],
+    ["End range", toYear(row)],
+  ];
+  return cards
+    .map(([label, value]) => `
+      <div class="detail-card">
+        <span>${escapeHtml(label)}</span>
+        <strong>${String(value || "-").startsWith("<") ? value : escapeHtml(value || "-")}</strong>
+      </div>
+    `)
+    .join("");
+}
+
+function renderModalBody(row) {
+  const benchmarkRows = modalBenchmarkRows(row.fsi_id);
+  const benchmarkSummary = benchmarkRows
+    .map((bench) => `${bench.benchmark_index}: r ${formatNumber(bench.pearson_r, 3)}, beta high ${formatNumber(bench.fsi_beta_high, 3)}`)
+    .join(" | ");
+  return `
+    <div class="detail-grid">${renderDetailCards(row)}</div>
+    <div class="score-grid">${renderScoreCards(row)}</div>
+    <h3 class="modal-section-title">Validation Rules</h3>
+    <div class="rules-layout">${renderRuleGroups(row)}</div>
+    <h3 class="modal-section-title">Validation Plots</h3>
+    <div id="modalPlots" class="plot-grid">
+      <div class="plot-loading">Loading plot data...</div>
+    </div>
+    <h3 class="modal-section-title">Benchmark Snapshot</h3>
+    <div class="plot-loading">${escapeHtml(benchmarkSummary || "No benchmark rows found.")}</div>
+  `;
+}
+
+async function renderModalPlots(row) {
+  const plotContainer = document.querySelector("#modalPlots");
+  if (!plotContainer) return;
+  try {
+    const { common, series } = await loadPlotSeries(row.fsi_id);
+    if (state.modalFsiId !== row.fsi_id) return;
+    const epuPoints = seriesPairs(common.epu, series.epu);
+    const cfsiPoints = seriesPairs(common.cfsi, series.cfsi);
+    const vixcPoints = seriesPairs(common.vixc, series.vixc);
+    plotContainer.innerHTML = [
+      {
+        title: "Monthly FSI vs EPU",
+        points: epuPoints,
+        benchmarkLabel: "EPU",
+      },
+      {
+        title: "Monthly FSI vs CFSI",
+        points: cfsiPoints,
+        benchmarkLabel: "CFSI",
+      },
+      {
+        title: "Daily FSI vs VIXC",
+        points: vixcPoints,
+        benchmarkLabel: "VIXC",
+        sampleText: `${formatInteger(common.vixc.sampleN)} of ${formatInteger(common.vixc.sourceN)} daily points`,
+      },
+    ].map((plot) => `
+      <article class="plot-card">
+        <h3>${escapeHtml(plot.title)}</h3>
+        ${renderLineChart(plot.title, plot.points, plot)}
+      </article>
+    `).join("");
+  } catch (error) {
+    plotContainer.innerHTML = `<div class="plot-error">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function openFsiModal(fsiId) {
+  const row = rankedRowById(fsiId);
+  if (!row) return;
+  state.modalFsiId = fsiId;
+  elements.modalTitle.textContent = fsiId;
+  elements.modalSubtitle.textContent = `${activeRankingMode().label} ${formatInteger(activeRank(row))} | ${row.sentiment_set} | ${methodValue(row)} m=${mValue(row)} | ${fromYear(row)} to ${toYear(row)}`;
+  elements.modalBody.innerHTML = renderModalBody(row);
+  elements.modal.hidden = false;
+  document.body.style.overflow = "hidden";
+  renderModalPlots(row);
+}
+
+function closeFsiModal() {
+  state.modalFsiId = null;
+  elements.modal.hidden = true;
+  document.body.style.overflow = "";
+}
+
 function activeRankingMode() {
   return RANKING_MODES[state.rankingMode] || RANKING_MODES.validation_rules;
 }
@@ -728,7 +1051,7 @@ function renderRankedTable() {
     .map((row) => `
       <tr>
         <td>${formatInteger(activeRank(row))}</td>
-        <td><span class="mono">${escapeHtml(row.fsi_id)}</span></td>
+        <td>${fsiButton(row.fsi_id)}</td>
         <td>${compareValue(activeScore(row), activeScore(state.compare.rankedRow))}</td>
         <td>${escapeHtml(row.sentiment_set)}</td>
         <td><span class="pill">${escapeHtml(methodValue(row))}</span></td>
@@ -766,7 +1089,7 @@ function renderBenchmarkTable() {
           <tr class="${index === 0 ? "benchmark-group-start" : ""}">
             ${index === 0 ? `
               <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(activeRank(group.rankedRow))}</td>
-              <td rowspan="${rowspan}" class="rowspan-cell"><span class="mono">${escapeHtml(group.rankedRow.fsi_id)}</span></td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${fsiButton(group.rankedRow.fsi_id)}</td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.sentiment_set)}</td>
               <td rowspan="${rowspan}" class="rowspan-cell"><span class="pill">${escapeHtml(methodValue(group.rankedRow))}</span></td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(mValue(group.rankedRow))}</td>
@@ -809,7 +1132,7 @@ function renderMsrTable() {
           <tr class="${index === 0 ? "benchmark-group-start" : ""}">
             ${index === 0 ? `
               <td rowspan="${rowspan}" class="rowspan-cell">${formatInteger(activeRank(group.rankedRow))}</td>
-              <td rowspan="${rowspan}" class="rowspan-cell"><span class="mono">${escapeHtml(group.rankedRow.fsi_id)}</span></td>
+              <td rowspan="${rowspan}" class="rowspan-cell">${fsiButton(group.rankedRow.fsi_id)}</td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(group.rankedRow.sentiment_set)}</td>
               <td rowspan="${rowspan}" class="rowspan-cell"><span class="pill">${escapeHtml(methodValue(group.rankedRow))}</span></td>
               <td rowspan="${rowspan}" class="rowspan-cell">${escapeHtml(mValue(group.rankedRow))}</td>
@@ -962,6 +1285,12 @@ function clearCompare() {
   renderCurrentView();
 }
 
+function handleFsiDetailClick(event) {
+  const button = event.target.closest(".fsi-detail-button");
+  if (!button) return;
+  openFsiModal(button.dataset.fsiId);
+}
+
 function switchView(view) {
   state.view = view;
   document.querySelectorAll(".tab").forEach((button) => {
@@ -1018,6 +1347,18 @@ function wireEvents() {
   });
   elements.downloadMsr.addEventListener("click", () => {
     window.location.href = FILES.all;
+  });
+  [elements.rankedTable, elements.benchmarkTable, elements.msrTable].forEach((tableBody) => {
+    tableBody.addEventListener("click", handleFsiDetailClick);
+  });
+  elements.modalClose.addEventListener("click", closeFsiModal);
+  elements.modal.addEventListener("click", (event) => {
+    if (event.target === elements.modal) closeFsiModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !elements.modal.hidden) {
+      closeFsiModal();
+    }
   });
 }
 
