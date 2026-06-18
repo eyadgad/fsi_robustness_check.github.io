@@ -597,6 +597,100 @@ code,
   font-weight: 800;
 }
 
+.table-section {
+  display: grid;
+  gap: 14px;
+}
+
+.table-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.table-card-grid-granger {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.table-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.table-card h3 {
+  margin: 0;
+  padding: 11px 12px 4px;
+  font-size: 14px;
+}
+
+.table-card p {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.table-subsection-title {
+  margin: 5px 0 -4px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.table-scroll {
+  overflow: auto;
+  border-top: 1px solid var(--line);
+}
+
+.table-card-compact .table-scroll {
+  max-height: 390px;
+}
+
+.validation-table {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.validation-table th,
+.validation-table td {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+.validation-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #344054;
+  background: #eef3f8;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.validation-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.validation-table .numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.subtle-cell {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .rules-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -642,7 +736,7 @@ code,
 }
 
 .plot-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
 }
 
 .plot-card {
@@ -650,9 +744,58 @@ code,
   padding: 12px;
 }
 
+.plot-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
 .plot-card h3 {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 14px;
+}
+
+.plot-zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.plot-zoom-controls button {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 8px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.plot-zoom-controls button:hover {
+  color: var(--accent-dark);
+  border-color: var(--accent);
+}
+
+.plot-zoom-level {
+  min-width: 46px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.plot-viewport {
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
 }
 
 .plot-card svg {
@@ -660,6 +803,7 @@ code,
   width: 100%;
   height: auto;
   min-height: 240px;
+  min-width: 720px;
 }
 
 .plot-loading,
@@ -722,7 +866,8 @@ code,
 
   .detail-grid,
   .score-grid,
-  .plot-grid {
+  .table-card-grid,
+  .table-card-grid-granger {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -759,8 +904,15 @@ code,
   .report-grid,
   .detail-grid,
   .score-grid,
-  .plot-grid {
+  .plot-grid,
+  .table-card-grid,
+  .table-card-grid-granger {
     grid-template-columns: 1fr;
+  }
+
+  .plot-card-header {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .modal-overlay {

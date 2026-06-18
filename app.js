@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260601_001500";
-const DATA_VERSION = "final-20260618-plot-axis-grid-1";
+const DATA_VERSION = "final-20260618-fsi-report-tables-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -582,6 +582,12 @@ function formatNumber(value, digits = 4) {
   return Number(value).toFixed(digits);
 }
 
+function formatSignedNumber(value, digits = 4) {
+  const parsed = numericValue(value);
+  if (parsed == null) return "-";
+  return `${parsed > 0 ? "+" : ""}${parsed.toFixed(digits)}`;
+}
+
 function formatInteger(value) {
   if (value === "" || value == null || Number.isNaN(Number(value))) return "-";
   return Number(value).toLocaleString();
@@ -605,6 +611,22 @@ function formatBool(value) {
   const parsed = boolValue(value);
   if (parsed == null) return "-";
   return `<span class="bool-pill ${parsed ? "bool-yes" : "bool-no"}">${parsed ? "Yes" : "No"}</span>`;
+}
+
+function significanceStars(value) {
+  const p = numericValue(value);
+  if (p == null) return "";
+  if (p < 0.01) return "***";
+  if (p < 0.05) return "**";
+  if (p < 0.10) return "*";
+  return "";
+}
+
+function formatPValue(value) {
+  const p = numericValue(value);
+  if (p == null) return "-";
+  const digits = p < 0.0001 ? 5 : 4;
+  return `${p.toFixed(digits)}${significanceStars(p)}`;
 }
 
 function formatRegimeMeans(value) {
@@ -711,6 +733,227 @@ function renderRuleGroups(row) {
       </section>
     `)
     .join("");
+}
+
+function renderReportTable(title, note, headers, rows, options = {}) {
+  const classes = ["table-card", options.compact ? "table-card-compact" : ""].filter(Boolean).join(" ");
+  return `
+    <article class="${classes}">
+      <h3>${escapeHtml(title)}</h3>
+      ${note ? `<p>${escapeHtml(note)}</p>` : ""}
+      <div class="table-scroll">
+        <table class="validation-table">
+          <thead>
+            <tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>
+          </thead>
+          <tbody>
+            ${rows.map((cells) => `
+              <tr>${cells.map((cell, index) => `<td class="${index === 0 ? "" : "numeric"}">${cell}</td>`).join("")}</tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </article>
+  `;
+}
+
+function adfConclusion(value) {
+  const p = numericValue(value);
+  if (p == null) return "-";
+  return p < 0.10 ? "Stationary" : "Not stationary";
+}
+
+function renderStationarityTable(row) {
+  const series = [
+    ["FSI (monthly)", "fsi_monthly"],
+    ["EPU (monthly)", "epu"],
+    ["CFSI (monthly)", "cfsi"],
+    ["FSI (daily)", "fsi_daily"],
+    ["VIXC (daily)", "vixc"],
+  ];
+  return renderReportTable(
+    "Stationarity Tests",
+    "ADF H0: the series contains a unit root. Conclusion uses p < 0.10 to match the comparison-report convention.",
+    ["Series", "ADF statistic", "p-value", "Conclusion"],
+    series.map(([label, prefix]) => [
+      escapeHtml(label),
+      formatNumber(row[`${prefix}_adf_stat`], 4),
+      formatPValue(row[`${prefix}_adf_p`]),
+      escapeHtml(adfConclusion(row[`${prefix}_adf_p`])),
+    ]),
+  );
+}
+
+function renderCorrelationTable(row) {
+  const rows = [
+    ["FSI vs EPU (monthly)", "epu"],
+    ["FSI vs CFSI (monthly)", "cfsi"],
+    ["FSI vs VIXC (daily)", "vixc"],
+  ].map(([label, prefix]) => [
+    escapeHtml(label),
+    formatSignedNumber(row[`${prefix}_pearson_r`], 4),
+    formatPValue(row[`${prefix}_pearson_p`]),
+    formatSignedNumber(row[`${prefix}_spearman_rho`], 4),
+    formatPValue(row[`${prefix}_spearman_p`]),
+  ]);
+  return renderReportTable(
+    "Correlation Analysis",
+    "VIXC uses the daily aligned series stored in the validation CSV.",
+    ["Series pair", "Pearson r", "p-value", "Spearman rho", "p-value"],
+    rows,
+  );
+}
+
+function lagCell(row, prefix, lag) {
+  return `${formatSignedNumber(row[`${prefix}_lead_lag${lag}_r`], 4)} (${formatPValue(row[`${prefix}_lead_lag${lag}_p`])})`;
+}
+
+function renderLeadLagTables(row) {
+  const monthlyRows = [
+    ["EPU (monthly)", "epu"],
+    ["CFSI (monthly)", "cfsi"],
+  ].map(([label, prefix]) => [
+    escapeHtml(label),
+    lagCell(row, prefix, 1),
+    lagCell(row, prefix, 2),
+    lagCell(row, prefix, 3),
+  ]);
+  const dailyRows = [[
+    "VIXC (daily)",
+    lagCell(row, "vixc", 1),
+    lagCell(row, "vixc", 5),
+    lagCell(row, "vixc", 10),
+  ]];
+  return `
+    ${renderReportTable(
+      "Lead-Lag Correlations: Monthly",
+      "Pearson r; FSI leads the benchmark by k months. p-values are in parentheses.",
+      ["Benchmark", "k = 1", "k = 2", "k = 3"],
+      monthlyRows,
+      { compact: true },
+    )}
+    ${renderReportTable(
+      "Lead-Lag Correlations: Daily",
+      "Pearson r; FSI leads VIXC by k trading days. p-values are in parentheses.",
+      ["Benchmark", "k = 1", "k = 5", "k = 10"],
+      dailyRows,
+      { compact: true },
+    )}
+  `;
+}
+
+function grangerSig(value) {
+  const p = numericValue(value);
+  if (p == null) return "-";
+  return p < 0.05 ? formatBool(true) : formatBool(false);
+}
+
+function renderGrangerTable(row, key, title, maxLag) {
+  const rows = Array.from({ length: maxLag }, (_, index) => {
+    const lag = index + 1;
+    return [
+      formatInteger(lag),
+      formatPValue(row[`gc_${key}_lag${lag}_f_p`]),
+      formatPValue(row[`gc_${key}_lag${lag}`]),
+      grangerSig(row[`gc_${key}_lag${lag}_f_p`]),
+    ];
+  });
+  return renderReportTable(
+    title,
+    "Sig. (5%) is based on the stored F-test p-value; the CSV stores p-values, not F/chi-square statistics.",
+    ["Lag", "F p-value", "Chi-square p-value", "Sig. 5%"],
+    rows,
+    { compact: true },
+  );
+}
+
+function renderGrangerTables(row) {
+  return `
+    ${renderGrangerTable(row, "fsi_epu", "Granger: FSI -> EPU", 12)}
+    ${renderGrangerTable(row, "epu_fsi", "Granger: EPU -> FSI", 12)}
+    ${renderGrangerTable(row, "fsi_cfsi", "Granger: FSI -> CFSI", 12)}
+    ${renderGrangerTable(row, "cfsi_fsi", "Granger: CFSI -> FSI", 12)}
+    ${renderGrangerTable(row, "fsi_vixc", "Granger: FSI -> VIXC", 30)}
+    ${renderGrangerTable(row, "vixc_fsi", "Granger: VIXC -> FSI", 30)}
+  `;
+}
+
+function msrRegimeCell(coef, se, p) {
+  return `${formatSignedNumber(coef, 4)}<span class="subtle-cell">SE ${formatNumber(se, 4)} | p ${formatPValue(p)}</span>`;
+}
+
+function renderMsrReportTable(row, prefix, label) {
+  const rows = [
+    [
+      "FSI coefficient",
+      msrRegimeCell(row[`${prefix}_fsi_beta_low`], row[`${prefix}_fsi_beta_low_se`], row[`${prefix}_fsi_beta_low_p`]),
+      msrRegimeCell(row[`${prefix}_fsi_beta_high`], row[`${prefix}_fsi_beta_high_se`], row[`${prefix}_fsi_beta_high_p`]),
+    ],
+    [
+      "Variance",
+      formatNumber(row[`${prefix}_low_variance`], 4),
+      formatNumber(row[`${prefix}_high_variance`], 4),
+    ],
+    [
+      "Persistence P(stay)",
+      formatNumber(row[`${prefix}_p_low_low`], 4),
+      formatNumber(row[`${prefix}_p_high_high`], 4),
+    ],
+    [
+      "Switch probability",
+      formatNumber(row[`${prefix}_p_low_high`], 4),
+      formatNumber(row[`${prefix}_p_high_low`], 4),
+    ],
+    [
+      "Regime share",
+      "-",
+      formatPercent(row[`${prefix}_high_regime_frac`], 1),
+    ],
+    [
+      "Model fit",
+      `LL ${formatNumber(row[`${prefix}_markov_llf`], 2)}`,
+      `AIC ${formatNumber(row[`${prefix}_markov_aic`], 2)} | BIC ${formatNumber(row[`${prefix}_markov_bic`], 2)}`,
+    ],
+    [
+      "Diagnostics",
+      `Converged ${formatBool(row[`${prefix}_markov_converged`])}`,
+      `Finite SE ${formatBool(row[`${prefix}_markov_finite_bse`])}`,
+    ],
+  ];
+  return renderReportTable(
+    `Markov Switching: ${label}`,
+    "Two-regime model diagnostics from the current CSV. Intercepts and transition SE/p-values are not stored.",
+    ["Metric", "Low-stress regime", "High-stress regime"],
+    rows,
+  );
+}
+
+function renderMsrReportTables(row) {
+  return `
+    ${renderMsrReportTable(row, "epu", "dependent variable EPU")}
+    ${renderMsrReportTable(row, "cfsi", "dependent variable CFSI")}
+    ${renderMsrReportTable(row, "vixc", "dependent variable VIXC")}
+  `;
+}
+
+function renderValidationTables(row) {
+  return `
+    <div class="table-section">
+      <div class="table-card-grid">
+        ${renderStationarityTable(row)}
+        ${renderCorrelationTable(row)}
+        ${renderLeadLagTables(row)}
+      </div>
+      <h4 class="table-subsection-title">Granger Causality Tests</h4>
+      <div class="table-card-grid table-card-grid-granger">
+        ${renderGrangerTables(row)}
+      </div>
+      <h4 class="table-subsection-title">Markov Switching Regression</h4>
+      <div class="table-card-grid">
+        ${renderMsrReportTables(row)}
+      </div>
+    </div>
+  `;
 }
 
 function seriesPairs(commonBench, fsiValues) {
@@ -1001,6 +1244,8 @@ function renderModalBody(row) {
     <div class="score-grid">${renderScoreCards(row)}</div>
     <h3 class="modal-section-title">Validation Rules</h3>
     <div class="rules-layout">${renderRuleGroups(row)}</div>
+    <h3 class="modal-section-title">Validation Tables</h3>
+    ${renderValidationTables(row)}
     <h3 class="modal-section-title">Validation Plots</h3>
     <div id="modalPlots" class="plot-grid">
       <div class="plot-loading">Loading plot data...</div>
@@ -1037,9 +1282,19 @@ async function renderModalPlots(row) {
         sampleText: `${formatInteger(common.vixc.sampleN)} of ${formatInteger(common.vixc.sourceN)} daily points`,
       },
     ].map((plot) => `
-      <article class="plot-card">
-        <h3>${escapeHtml(plot.title)}</h3>
-        ${renderLineChart(plot.title, plot.points, plot)}
+      <article class="plot-card" data-zoom="1">
+        <div class="plot-card-header">
+          <h3>${escapeHtml(plot.title)}</h3>
+          <div class="plot-zoom-controls" aria-label="${escapeHtml(plot.title)} zoom controls">
+            <button type="button" data-plot-action="zoom-out" aria-label="Zoom out ${escapeHtml(plot.title)}" title="Zoom out">-</button>
+            <span class="plot-zoom-level">100%</span>
+            <button type="button" data-plot-action="zoom-in" aria-label="Zoom in ${escapeHtml(plot.title)}" title="Zoom in">+</button>
+            <button type="button" data-plot-action="zoom-reset" aria-label="Reset zoom ${escapeHtml(plot.title)}" title="Reset zoom">1:1</button>
+          </div>
+        </div>
+        <div class="plot-viewport">
+          ${renderLineChart(plot.title, plot.points, plot)}
+        </div>
       </article>
     `).join("");
   } catch (error) {
@@ -1063,6 +1318,34 @@ function closeFsiModal() {
   state.modalFsiId = null;
   elements.modal.hidden = true;
   document.body.style.overflow = "";
+}
+
+function setPlotZoom(card, zoom) {
+  const nextZoom = Math.max(0.75, Math.min(3, zoom));
+  card.dataset.zoom = String(nextZoom);
+  const svg = card.querySelector(".plot-viewport svg");
+  if (svg) {
+    svg.style.width = `${nextZoom * 100}%`;
+  }
+  const label = card.querySelector(".plot-zoom-level");
+  if (label) {
+    label.textContent = `${Math.round(nextZoom * 100)}%`;
+  }
+}
+
+function handlePlotZoomClick(event) {
+  const button = event.target.closest("[data-plot-action]");
+  if (!button || !elements.modal.contains(button)) return;
+  const card = button.closest(".plot-card");
+  if (!card) return;
+  const current = numericValue(card.dataset.zoom) || 1;
+  if (button.dataset.plotAction === "zoom-in") {
+    setPlotZoom(card, current + 0.25);
+  } else if (button.dataset.plotAction === "zoom-out") {
+    setPlotZoom(card, current - 0.25);
+  } else {
+    setPlotZoom(card, 1);
+  }
 }
 
 function activeRankingMode() {
@@ -1416,6 +1699,7 @@ function wireEvents() {
   });
   elements.modalClose.addEventListener("click", closeFsiModal);
   elements.modal.addEventListener("click", (event) => {
+    handlePlotZoomClick(event);
     if (event.target === elements.modal) closeFsiModal();
   });
   document.addEventListener("keydown", (event) => {
