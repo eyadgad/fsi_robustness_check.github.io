@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>FSI Robustness Check</title>
-    <link rel="stylesheet" href="styles.css?v=end-range-year-groups">
+    <link rel="stylesheet" href="styles.css?v=fsi-detail-modal">
   </head>
   <body>
     <header class="app-header">
@@ -221,6 +221,20 @@
       </section>
     </main>
 
-    <script src="app.js?v=validation-rules"></script>
+    <div id="fsiModal" class="modal-overlay" hidden>
+      <section class="fsi-modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <header class="modal-header">
+          <div>
+            <p class="eyebrow">FSI detail</p>
+            <h2 id="modalTitle">Validation detail</h2>
+            <p id="modalSubtitle" class="modal-subtitle"></p>
+          </div>
+          <button id="modalClose" class="icon-button" type="button" aria-label="Close detail window">×</button>
+        </header>
+        <div id="modalBody" class="modal-body"></div>
+      </section>
+    </div>
+
+    <script src="app.js?v=fsi-detail-modal"></script>
   </body>
 </html>

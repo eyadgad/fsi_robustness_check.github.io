@@ -472,6 +472,227 @@ code,
   text-decoration: underline;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(18, 28, 45, 0.52);
+}
+
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.fsi-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1380px, 100%);
+  max-height: min(92vh, 980px);
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 20px 56px rgba(21, 32, 51, 0.24);
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal-subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.icon-button {
+  width: 38px;
+  height: 38px;
+  color: var(--muted);
+  background: #fff;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.icon-button:hover {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.modal-body {
+  overflow: auto;
+  padding: 18px 20px 22px;
+}
+
+.detail-grid,
+.score-grid,
+.plot-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.detail-card,
+.rule-group,
+.plot-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.detail-card {
+  min-height: 72px;
+  padding: 12px;
+}
+
+.detail-card span,
+.score-card span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detail-card strong,
+.score-card strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 18px;
+}
+
+.score-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 16px;
+}
+
+.score-card {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.modal-section-title {
+  margin: 18px 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.rules-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.rule-group {
+  overflow: hidden;
+}
+
+.rule-group h3 {
+  margin: 0;
+  padding: 11px 12px;
+  background: #eef3f8;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.rule-list {
+  display: grid;
+  gap: 0;
+}
+
+.rule-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.rule-row:last-child {
+  border-bottom: 0;
+}
+
+.rule-row small {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.plot-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.plot-card {
+  min-width: 0;
+  padding: 12px;
+}
+
+.plot-card h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.plot-card svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 240px;
+}
+
+.plot-loading,
+.plot-error {
+  padding: 18px;
+  color: var(--muted);
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: #fbfcfe;
+}
+
+.plot-error {
+  color: #b42318;
+}
+
+.fsi-detail-button {
+  padding: 0;
+  color: var(--accent-dark);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.fsi-detail-button:hover {
+  color: var(--accent);
+}
+
 .empty {
   padding: 24px;
   color: var(--muted);
@@ -497,6 +718,16 @@ code,
 
   .report-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-grid,
+  .score-grid,
+  .plot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rules-layout {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -525,7 +756,26 @@ code,
   .summary-grid,
   .compare-row,
   .filter-row,
-  .report-grid {
+  .report-grid,
+  .detail-grid,
+  .score-grid,
+  .plot-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .fsi-modal {
+    max-height: 96vh;
+  }
+
+  .modal-header {
+    padding: 14px;
+  }
+
+  .modal-body {
+    padding: 14px;
   }
 }
