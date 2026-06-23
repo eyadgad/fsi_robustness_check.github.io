@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260618_185759";
-const DATA_VERSION = "final-20260623-grid-refresh-1";
+const DATA_VERSION = "final-20260623-end-filter-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -478,7 +478,7 @@ function groupedEndPeriods(rows) {
     });
 
   return [...byYear.entries()]
-    .sort(([a], [b]) => Number(a) - Number(b))
+    .sort(([a], [b]) => Number(b) - Number(a))
     .map(([year, periods]) => ({ year, periods }));
 }
 
