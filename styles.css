@@ -227,6 +227,10 @@ button:focus {
   max-height: 118px;
 }
 
+.end-period-list {
+  max-height: 240px;
+}
+
 .checkbox-option {
   display: grid;
   grid-template-columns: 16px minmax(0, 1fr);
