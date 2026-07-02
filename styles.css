@@ -739,6 +739,30 @@ code,
   font-size: 11px;
 }
 
+.rule-group-note {
+  margin: 0;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  background: #f7f9fb;
+}
+
+.rule-cond {
+  display: block;
+  margin-top: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid var(--line);
+  color: #1f2d3d;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .plot-grid {
   grid-template-columns: 1fr;
 }

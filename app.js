@@ -1,5 +1,5 @@
 ﻿const DATA_DIR = "assets/grid_search_20260618_185759";
-const DATA_VERSION = "final-20260624-remove-2026q1-1";
+const DATA_VERSION = "final-20260701-dec2023-1";
 const dataFile = (file) => `${DATA_DIR}/${file}?v=${DATA_VERSION}`;
 const FILES = {
   ranked: dataFile("grid_validation_ranked_report.csv"),
@@ -224,44 +224,52 @@ for (let lag = 1; lag <= 30; lag += 1) {
   "p_high_high",
 ].forEach((column) => numberColumns.add(column));
 
+// Each rule is [field, label, plain-language note, exact condition].
+// The exact condition mirrors grid_search.add_validation_rule_score_columns().
+// Notation: sig_lags(X->Y) = number of Granger F-test lags with p < 0.05
+//   (monthly EPU/CFSI: lags 1-12; daily VIXC: lags 1-30).
+// Any missing/NaN input makes the rule fail.
 const RULE_GROUPS = [
   {
     title: "Minimum Acceptance Rules",
+    note: "All 16 must pass for a variant to be accepted.",
     rules: [
-      ["rule_A1_monthly_fsi_stationary", "A1. Monthly FSI stationarity", "ADF p < 0.10"],
-      ["rule_A2_daily_fsi_stationary", "A2. Daily FSI stationarity", "ADF p < 0.05"],
-      ["rule_A3_benchmark_stationary", "A3. Benchmark stationarity", "EPU, CFSI, and VIXC ADF p < 0.10"],
-      ["rule_B1_epu_corr_positive_significant", "B1. Positive significant EPU correlation", "Pearson r > 0 and p < 0.05"],
-      ["rule_B2_cfsi_corr_positive_significant", "B2. Positive significant CFSI correlation", "Pearson r > 0 and p < 0.05"],
-      ["rule_C1_fsi_leads_epu", "C1. FSI positively leads EPU", "Lags 1-3 positive, at least two p < 0.05"],
-      ["rule_C2_fsi_leads_cfsi", "C2. FSI positively leads CFSI", "Lags 1-3 positive, at least one p < 0.05"],
-      ["rule_D1_fsi_granger_causes_epu", "D1. FSI Granger-causes EPU", "At least two significant lags"],
-      ["rule_D2_no_stronger_epu_reverse_granger", "D2. EPU reverse causality control", "FSI->EPU significant lags > EPU->FSI"],
-      ["rule_E1_msr_epu_high_positive_significant", "E1. EPU MSR high-stress coefficient", "High beta > 0 and p < 0.05"],
-      ["rule_E2_msr_cfsi_high_positive_significant", "E2. CFSI MSR high-stress coefficient", "High beta > 0 and p < 0.05"],
-      ["rule_E3_msr_vixc_high_positive_significant", "E3. VIXC MSR high-stress coefficient", "High beta > 0 and p < 0.05"],
-      ["rule_E5_msr_beta_high_greater_than_low", "E5. MSR regime separation", "High beta > low beta for all benchmarks"],
-      ["rule_E6_msr_high_variance_greater_than_low", "E6. MSR variance separation", "High variance > low variance for all benchmarks"],
-      ["rule_E7_msr_low_persistence", "E7. Low-stress persistence", "P(low->low) > 0.90 for all benchmarks"],
-      ["rule_E8_msr_high_persistence", "E8. High-stress persistence", "P(high->high) > 0.85 for all benchmarks"],
+      ["rule_A1_monthly_fsi_stationary", "A1. Monthly FSI stationarity", "ADF p < 0.10", "fsi_monthly_adf_p < 0.10"],
+      ["rule_A2_daily_fsi_stationary", "A2. Daily FSI stationarity", "ADF p < 0.05", "fsi_daily_adf_p < 0.05"],
+      ["rule_A3_benchmark_stationary", "A3. Benchmark stationarity", "EPU, CFSI, and VIXC ADF p < 0.10", "epu_adf_p < 0.10  AND  cfsi_adf_p < 0.10  AND  vixc_adf_p < 0.10"],
+      ["rule_B1_epu_corr_positive_significant", "B1. Positive significant EPU correlation", "Pearson r > 0 and p < 0.05", "epu_pearson_r > 0  AND  epu_pearson_p < 0.05"],
+      ["rule_B2_cfsi_corr_positive_significant", "B2. Positive significant CFSI correlation", "Pearson r > 0 and p < 0.05", "cfsi_pearson_r > 0  AND  cfsi_pearson_p < 0.05"],
+      ["rule_C1_fsi_leads_epu", "C1. FSI positively leads EPU", "Lags 1-3 positive, at least two p < 0.05", "epu_lead_lag{1,2,3}_r all > 0  AND  count(epu_lead_lag{1,2,3}_p < 0.05) >= 2"],
+      ["rule_C2_fsi_leads_cfsi", "C2. FSI positively leads CFSI", "Lags 1-3 positive, at least one p < 0.05", "cfsi_lead_lag{1,2,3}_r all > 0  AND  count(cfsi_lead_lag{1,2,3}_p < 0.05) >= 1"],
+      ["rule_D1_fsi_granger_causes_epu", "D1. FSI Granger-causes EPU", "At least two significant lags", "sig_lags(FSI->EPU) >= 2"],
+      ["rule_D2_no_stronger_epu_reverse_granger", "D2. EPU reverse causality control", "FSI->EPU significant lags > EPU->FSI", "sig_lags(FSI->EPU) > sig_lags(EPU->FSI)"],
+      ["rule_E1_msr_epu_high_positive_significant", "E1. EPU MSR high-stress coefficient", "High beta > 0 and p < 0.05", "epu_fsi_beta_high > 0  AND  epu_fsi_beta_high_p < 0.05"],
+      ["rule_E2_msr_cfsi_high_positive_significant", "E2. CFSI MSR high-stress coefficient", "High beta > 0 and p < 0.05", "cfsi_fsi_beta_high > 0  AND  cfsi_fsi_beta_high_p < 0.05"],
+      ["rule_E3_msr_vixc_high_positive_significant", "E3. VIXC MSR high-stress coefficient", "High beta > 0 and p < 0.05", "vixc_fsi_beta_high > 0  AND  vixc_fsi_beta_high_p < 0.05"],
+      ["rule_E5_msr_beta_high_greater_than_low", "E5. MSR regime separation", "High beta > low beta for all benchmarks", "epu_fsi_beta_high > epu_fsi_beta_low  AND  cfsi_fsi_beta_high > cfsi_fsi_beta_low  AND  vixc_fsi_beta_high > vixc_fsi_beta_low"],
+      ["rule_E6_msr_high_variance_greater_than_low", "E6. MSR variance separation", "High variance > low variance for all benchmarks", "epu_high_variance > epu_low_variance  AND  cfsi_high_variance > cfsi_low_variance  AND  vixc_high_variance > vixc_low_variance"],
+      ["rule_E7_msr_low_persistence", "E7. Low-stress persistence", "P(low->low) > 0.90 for all benchmarks", "epu_p_low_low > 0.90  AND  cfsi_p_low_low > 0.90  AND  vixc_p_low_low > 0.90"],
+      ["rule_E8_msr_high_persistence", "E8. High-stress persistence", "P(high->high) > 0.85 for all benchmarks", "epu_p_high_high > 0.85  AND  cfsi_p_high_high > 0.85  AND  vixc_p_high_high > 0.85"],
     ],
   },
   {
     title: "Supporting Rules",
+    note: "Counted toward the rules score but not required for acceptance.",
     rules: [
-      ["rule_B3_vixc_daily_corr_positive_weak_significant", "B3. Positive daily VIXC correlation", "Pearson r > 0 and p < 0.10"],
-      ["rule_B4_spearman_no_contradiction", "B4. Spearman consistency", "Spearman does not strongly contradict Pearson"],
-      ["rule_C3_fsi_leads_vixc", "C3. FSI positively leads VIXC", "Daily lags 1, 5, and 10 positive"],
-      ["rule_D3_no_stronger_cfsi_reverse_granger", "D3. CFSI reverse causality control", "CFSI->FSI not stronger than FSI->CFSI"],
-      ["rule_D4_no_stronger_vixc_reverse_granger", "D4. VIXC reverse causality control", "VIXC->FSI not stronger than FSI->VIXC"],
-      ["rule_E4_low_stress_no_strong_contradiction", "E4. Low-stress MSR does not contradict", "Low beta does not strongly oppose high beta"],
+      ["rule_B3_vixc_daily_corr_positive_weak_significant", "B3. Positive daily VIXC correlation", "Pearson r > 0 and p < 0.10", "vixc_pearson_r > 0  AND  vixc_pearson_p < 0.10"],
+      ["rule_B4_spearman_no_contradiction", "B4. Spearman consistency", "Spearman does not strongly contradict Pearson", "for EPU and CFSI: (r>=0 AND rho>=0) OR (r<=0 AND rho<=0) OR spearman_p >= 0.10"],
+      ["rule_C3_fsi_leads_vixc", "C3. FSI positively leads VIXC", "Daily lags 1, 5, and 10 positive", "vixc_lead_lag1_r > 0  AND  vixc_lead_lag5_r > 0  AND  vixc_lead_lag10_r > 0"],
+      ["rule_D3_no_stronger_cfsi_reverse_granger", "D3. CFSI reverse causality control", "CFSI->FSI not stronger than FSI->CFSI", "sig_lags(CFSI->FSI) <= sig_lags(FSI->CFSI)"],
+      ["rule_D4_no_stronger_vixc_reverse_granger", "D4. VIXC reverse causality control", "VIXC->FSI not stronger than FSI->VIXC", "sig_lags(VIXC->FSI) <= sig_lags(FSI->VIXC)"],
+      ["rule_E4_low_stress_no_strong_contradiction", "E4. Low-stress MSR does not contradict", "Low beta does not strongly oppose high beta", "epu_fsi_beta_low >= 0  AND  cfsi_fsi_beta_low >= -0.05*|cfsi_fsi_beta_high|  AND  vixc_fsi_beta_low >= -0.05*|vixc_fsi_beta_high|"],
     ],
   },
   {
     title: "Diagnostic Rules",
+    note: "Reported for information only; not scored.",
     rules: [
-      ["rule_C3_strong_fsi_leads_vixc", "Strong C3. VIXC lead significance", "At least two VIXC lead-lag p-values < 0.10"],
-      ["rule_D2_strong_no_epu_reverse_granger", "Strong D2. No EPU reverse lags", "No significant EPU->FSI Granger lags"],
+      ["rule_C3_strong_fsi_leads_vixc", "Strong C3. VIXC lead significance", "At least two VIXC lead-lag p-values < 0.10", "rule_C3 passes  AND  count(vixc_lead_lag{1,5,10}_p < 0.10) >= 2"],
+      ["rule_D2_strong_no_epu_reverse_granger", "Strong D2. No EPU reverse lags", "No significant EPU->FSI Granger lags", "sig_lags(EPU->FSI) == 0"],
     ],
   },
 ];
@@ -719,12 +727,14 @@ function renderRuleGroups(row) {
     .map((group) => `
       <section class="rule-group">
         <h3>${escapeHtml(group.title)}</h3>
+        ${group.note ? `<p class="rule-group-note">${escapeHtml(group.note)}</p>` : ""}
         <div class="rule-list">
-          ${group.rules.map(([field, label, note]) => `
+          ${group.rules.map(([field, label, note, cond]) => `
             <div class="rule-row">
               <div>
                 <strong>${escapeHtml(label)}</strong>
                 <small>${escapeHtml(note)}</small>
+                ${cond ? `<code class="rule-cond">${escapeHtml(cond)}</code>` : ""}
               </div>
               ${ruleStatus(row[field])}
             </div>
